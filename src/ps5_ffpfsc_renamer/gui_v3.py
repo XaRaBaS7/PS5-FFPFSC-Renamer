@@ -8,7 +8,13 @@ from .naming import (
     COMPONENT_TITLE,
     COMPONENT_TITLE_ID,
     COMPONENT_VERSION,
+    FOLDER_ALWAYS_NEW,
+    FOLDER_FILE_ONLY,
+    FOLDER_SMART,
     NamingOptions,
+    build_output_stem,
+    effective_folder_handling,
+    example_output,
 )
 from .theme import COLORS
 
@@ -25,9 +31,11 @@ class RenamerApp(RenamerAppV2):
     PRESET_TITLE_VERSION_PPSA = "Title → Version → PPSA"
     PRESET_CUSTOM = "Custom"
 
+    FOLDER_SMART_LABEL = "Smart (recommended)"
+    FOLDER_FILE_ONLY_LABEL = "File only"
+    FOLDER_ALWAYS_NEW_LABEL = "Always create new folder"
+
     def __init__(self) -> None:
-        # Plain Python state is safe to create before tk.Tk is initialized by
-        # the parent. The parent creates all Tk variables before _build_ui().
         self.component_order = [
             COMPONENT_TITLE_ID,
             COMPONENT_TITLE,
@@ -68,23 +76,21 @@ class RenamerApp(RenamerAppV2):
         self.preset_combo.pack(side="left")
         self.preset_combo.bind("<<ComboboxSelected>>", self._apply_preset)
 
-        ttk.Label(
-            card,
-            text="Filename order",
-            style="CardMuted.TLabel",
-        ).pack(anchor="w", pady=(10, 5))
+        ttk.Label(card, text="Filename order", style="CardMuted.TLabel").pack(
+            anchor="w", pady=(10, 5)
+        )
 
         self.order_editor = tk.Frame(card, bg=COLORS["panel"])
         self.order_editor.pack(fill="x")
         self._render_order_editor()
 
-        options_row = ttk.Frame(card, style="Card.TFrame")
-        options_row.pack(fill="x", pady=(9, 0))
-        ttk.Label(options_row, text="Version", style="CardMuted.TLabel").pack(
+        version_row = ttk.Frame(card, style="Card.TFrame")
+        version_row.pack(fill="x", pady=(9, 0))
+        ttk.Label(version_row, text="Version", style="CardMuted.TLabel").pack(
             side="left", padx=(0, 6)
         )
         self.version_combo = ttk.Combobox(
-            options_row,
+            version_row,
             textvariable=self.version_format_var,
             values=(self.VERSION_COMPACT, self.VERSION_ORIGINAL),
             state="readonly",
@@ -95,20 +101,43 @@ class RenamerApp(RenamerAppV2):
         self.version_combo.bind("<<ComboboxSelected>>", self._output_setting_changed)
 
         self.version_prefix_check = ttk.Checkbutton(
-            options_row,
+            version_row,
             text="Prefix 'v'",
             variable=self.version_prefix_var,
             command=self._output_setting_changed,
         )
         self.version_prefix_check.pack(side="left", padx=(9, 5))
 
-        self.folder_check = ttk.Checkbutton(
-            options_row,
-            text="Create folder",
-            variable=self.create_folder_var,
-            command=self._output_setting_changed,
+        folder_row = ttk.Frame(card, style="Card.TFrame")
+        folder_row.pack(fill="x", pady=(8, 0))
+        ttk.Label(folder_row, text="Folder handling", style="CardMuted.TLabel").pack(
+            side="left", padx=(0, 6)
         )
-        self.folder_check.pack(side="left", padx=5)
+        self.folder_mode_var = tk.StringVar(value=self.FOLDER_SMART_LABEL)
+        self.folder_mode_combo = ttk.Combobox(
+            folder_row,
+            textvariable=self.folder_mode_var,
+            values=(
+                self.FOLDER_SMART_LABEL,
+                self.FOLDER_FILE_ONLY_LABEL,
+                self.FOLDER_ALWAYS_NEW_LABEL,
+            ),
+            state="readonly",
+            width=27,
+            style="Performance.TCombobox",
+        )
+        self.folder_mode_combo.pack(side="left")
+        self.folder_mode_combo.bind("<<ComboboxSelected>>", self._folder_mode_changed)
+
+        self.folder_help_var = tk.StringVar()
+        ttk.Label(
+            card,
+            textvariable=self.folder_help_var,
+            style="CardMuted.TLabel",
+            wraplength=620,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+        self._update_folder_help()
 
         ttk.Label(card, text="Live preview", style="CardMuted.TLabel").pack(
             anchor="w", pady=(9, 4)
@@ -152,23 +181,21 @@ class RenamerApp(RenamerAppV2):
             )
             row.pack(fill="x", pady=(0, 4))
 
-            number = tk.Label(
+            tk.Label(
                 row,
                 text=str(index + 1),
                 bg=COLORS["accent_soft"],
                 fg=COLORS["accent_hover"],
                 font=("Segoe UI", 9, "bold"),
                 width=3,
-            )
-            number.pack(side="left", fill="y", ipady=6)
+            ).pack(side="left", fill="y", ipady=6)
 
-            check = ttk.Checkbutton(
+            ttk.Checkbutton(
                 row,
                 text=label,
                 variable=variable,
                 command=self._component_enabled_changed,
-            )
-            check.pack(side="left", padx=(8, 5))
+            ).pack(side="left", padx=(8, 5))
 
             tk.Label(
                 row,
@@ -217,6 +244,14 @@ class RenamerApp(RenamerAppV2):
         self.preset_var.set(self.PRESET_CUSTOM)
         self._output_setting_changed()
 
+    def _folder_mode(self) -> str:
+        label = self.folder_mode_var.get()
+        if label == self.FOLDER_FILE_ONLY_LABEL:
+            return FOLDER_FILE_ONLY
+        if label == self.FOLDER_ALWAYS_NEW_LABEL:
+            return FOLDER_ALWAYS_NEW
+        return FOLDER_SMART
+
     def _current_naming_options(self) -> NamingOptions:
         return NamingOptions(
             include_title_id=bool(self.include_id_var.get()),
@@ -224,9 +259,45 @@ class RenamerApp(RenamerAppV2):
             include_version=bool(self.include_version_var.get()),
             compact_version=self.version_format_var.get() == self.VERSION_COMPACT,
             version_prefix=bool(self.version_prefix_var.get()),
-            create_folder=bool(self.create_folder_var.get()),
+            create_folder=False,
+            folder_handling=self._folder_mode(),
+            library_root=self.folder_var.get().strip() or None,
             component_order=tuple(self.component_order),
         )
+
+    def _folder_mode_changed(self, _event=None) -> None:
+        self._update_folder_help()
+        self._output_setting_changed()
+
+    def _update_folder_help(self) -> None:
+        mode = self._folder_mode()
+        if mode == FOLDER_SMART:
+            text = (
+                "Smart: loose files get a folder; if a file is already inside a dedicated folder, "
+                "both folder and file are renamed. Folders containing multiple FFPFSC files are blocked."
+            )
+        elif mode == FOLDER_FILE_ONLY:
+            text = "File only: rename the .ffpfsc file and leave every folder name unchanged."
+        else:
+            text = "Always create new folder: create a new generated subfolder and move the .ffpfsc into it."
+        self.folder_help_var.set(text)
+
+    def _refresh_output_preview(self) -> None:
+        options = self._current_naming_options()
+        try:
+            if self.parsed_items:
+                metadata = self.parsed_items[0][1]
+                stem = build_output_stem(metadata, options)
+                filename = f"{stem}.ffpfsc"
+                if effective_folder_handling(options) == FOLDER_FILE_ONLY:
+                    preview = filename
+                else:
+                    preview = f"{stem}\\{filename}"
+            else:
+                preview = example_output(options)
+        except ValueError as exc:
+            preview = f"Invalid format: {exc}"
+        self.output_preview_var.set(preview)
 
     def _apply_preset(self, _event=None) -> None:
         preset = self.preset_var.get()
