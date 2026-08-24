@@ -147,9 +147,6 @@ class MetadataCache:
             ):
                 return CacheLookup(self._metadata_from_row(row), True, "path+stat")
 
-            # Do not touch the huge file unless there is at least one plausible
-            # cached candidate with the same size. On a first-ever scan this
-            # keeps cache lookup essentially free.
             candidates = connection.execute(
                 """
                 SELECT * FROM metadata_cache
@@ -166,10 +163,7 @@ class MetadataCache:
         except OSError:
             return CacheLookup(None, False)
 
-        matched = next(
-            (row for row in candidates if row["fingerprint"] == fingerprint),
-            None,
-        )
+        matched = next((row for row in candidates if row["fingerprint"] == fingerprint), None)
         if matched is None:
             return CacheLookup(None, False)
 
@@ -262,6 +256,12 @@ class MetadataCache:
                     old_key,
                 ),
             )
+
+    def remove(self, path: Path) -> None:
+        """Remove one cached record after the user deletes/moves a file away."""
+        key = _path_key(path)
+        with self._connect() as connection:
+            connection.execute("DELETE FROM metadata_cache WHERE path_key = ?", (key,))
 
     def clear(self) -> None:
         with self._connect() as connection:
