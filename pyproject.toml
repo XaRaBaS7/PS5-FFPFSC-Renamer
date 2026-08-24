@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ps5-ffpfsc-renamer"
-version = "0.1.4"
+version = "0.1.5"
 description = "Safely inspect PS5 FFPFSC metadata and preview or apply batch renames."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["send2trash>=1.8.3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
