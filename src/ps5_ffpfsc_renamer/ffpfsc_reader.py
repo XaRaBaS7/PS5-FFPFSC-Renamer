@@ -10,6 +10,7 @@ import threading
 import time
 from pathlib import Path
 
+from .cache import MetadataCache
 from .metadata import GameMetadata, metadata_from_param_json
 
 
@@ -19,6 +20,19 @@ class MetadataReadError(RuntimeError):
 
 class MetadataReadCancelled(MetadataReadError):
     pass
+
+
+_default_cache: MetadataCache | None = None
+_default_cache_lock = threading.Lock()
+
+
+def _get_default_cache() -> MetadataCache:
+    global _default_cache
+    if _default_cache is None:
+        with _default_cache_lock:
+            if _default_cache is None:
+                _default_cache = MetadataCache()
+    return _default_cache
 
 
 def mkpfs_available() -> bool:
@@ -52,6 +66,9 @@ def read_metadata(
     image: Path,
     timeout: int = 120,
     cancel_event: threading.Event | None = None,
+    *,
+    cache: MetadataCache | None = None,
+    use_cache: bool = True,
 ) -> GameMetadata:
     image = image.resolve()
     if not image.is_file():
@@ -60,6 +77,18 @@ def read_metadata(
         raise MetadataReadError(f"Unsupported file extension: {image.suffix}")
     if cancel_event is not None and cancel_event.is_set():
         raise MetadataReadCancelled("Metadata analysis cancelled")
+
+    active_cache: MetadataCache | None = None
+    if use_cache:
+        try:
+            active_cache = cache or _get_default_cache()
+            cached = active_cache.lookup(image)
+            if cached.hit and cached.metadata is not None:
+                return cached.metadata
+        except Exception:
+            # Cache failure must never prevent metadata analysis. The DB is an
+            # optimization only; MkPFS remains the source of truth on a miss.
+            active_cache = None
 
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-renamer-") as temp_name:
         # MkPFS 0.0.9 expects the output path not to exist unless
@@ -127,6 +156,14 @@ def read_metadata(
             raise MetadataReadError("param.json root is not a JSON object")
 
         try:
-            return metadata_from_param_json(data)
+            metadata = metadata_from_param_json(data)
         except ValueError as exc:
             raise MetadataReadError(str(exc)) from exc
+
+        if active_cache is not None:
+            try:
+                active_cache.store(image, metadata)
+            except Exception:
+                pass
+
+        return metadata
