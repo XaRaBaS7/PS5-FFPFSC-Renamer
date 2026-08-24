@@ -29,7 +29,10 @@ def read_metadata(image: Path, timeout: int = 120) -> GameMetadata:
         raise MetadataReadError(f"Unsupported file extension: {image.suffix}")
 
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-renamer-") as temp_name:
-        output_dir = Path(temp_name)
+        # MkPFS 0.0.9 expects the output path not to exist unless
+        # --overwrite is supplied. Keep the TemporaryDirectory as a private
+        # parent and hand MkPFS a child path that has not been created yet.
+        output_dir = Path(temp_name) / "extract"
         command = [
             *_mkpfs_command(),
             "unpack",
