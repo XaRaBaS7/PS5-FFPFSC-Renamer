@@ -5,6 +5,11 @@ from dataclasses import dataclass
 
 from .metadata import GameMetadata
 
+COMPONENT_TITLE_ID = "title_id"
+COMPONENT_TITLE = "title"
+COMPONENT_VERSION = "version"
+COMPONENTS = (COMPONENT_TITLE_ID, COMPONENT_TITLE, COMPONENT_VERSION)
+
 _WINDOWS_RESERVED = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{i}" for i in range(1, 10)),
@@ -23,6 +28,7 @@ class NamingOptions:
     version_prefix: bool = True
     create_folder: bool = False
     separator: str = " - "
+    component_order: tuple[str, ...] = COMPONENTS
 
 
 def sanitize_windows_component(value: str) -> str:
@@ -33,7 +39,6 @@ def sanitize_windows_component(value: str) -> str:
         return "Unknown"
     if cleaned.upper() in _WINDOWS_RESERVED:
         cleaned = f"_{cleaned}"
-    # Leave room for extension/path handling and avoid pathological components.
     return cleaned[:180].rstrip(". ") or "Unknown"
 
 
@@ -58,9 +63,6 @@ def compact_ps5_version(value: str | None) -> str | None:
     if len(parts) == 1:
         return major
 
-    # The second group behaves like a fixed-width decimal fraction. Keep
-    # leading zeros (005 -> .005) and remove only trailing padding zeros
-    # (500 -> .5, 250 -> .25, 000 -> .0).
     minor = parts[1].rstrip("0") or "0"
     result = f"{major}.{minor}"
 
@@ -77,20 +79,51 @@ def display_version(metadata: GameMetadata, compact: bool = True) -> str | None:
     return compact_ps5_version(value) if compact else value.strip()
 
 
+def _validated_component_order(order: tuple[str, ...]) -> tuple[str, ...]:
+    """Validate a user-selected component order.
+
+    Missing known components are appended so older callers and partially
+    specified custom orders remain deterministic. Unknown or duplicate
+    components are rejected because they would make the preview misleading.
+    """
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for component in order:
+        if component not in COMPONENTS:
+            raise ValueError(f"Unknown filename component: {component}")
+        if component in seen:
+            raise ValueError(f"Duplicate filename component: {component}")
+        seen.add(component)
+        normalized.append(component)
+
+    for component in COMPONENTS:
+        if component not in seen:
+            normalized.append(component)
+    return tuple(normalized)
+
+
 def build_output_stem(metadata: GameMetadata, options: NamingOptions) -> str:
-    parts: list[str] = []
-
-    if options.include_title_id:
-        parts.append(metadata.title_id)
-
-    if options.include_title and metadata.title_name:
-        parts.append(sanitize_windows_component(metadata.title_name))
+    values: dict[str, str | None] = {
+        COMPONENT_TITLE_ID: metadata.title_id if options.include_title_id else None,
+        COMPONENT_TITLE: (
+            sanitize_windows_component(metadata.title_name)
+            if options.include_title and metadata.title_name
+            else None
+        ),
+        COMPONENT_VERSION: None,
+    }
 
     if options.include_version:
         version = display_version(metadata, compact=options.compact_version)
         if version:
             version_text = f"v{version}" if options.version_prefix else version
-            parts.append(sanitize_windows_component(version_text))
+            values[COMPONENT_VERSION] = sanitize_windows_component(version_text)
+
+    parts: list[str] = []
+    for component in _validated_component_order(options.component_order):
+        value = values.get(component)
+        if value:
+            parts.append(value)
 
     if not parts:
         raise ValueError("Output format must include at least one available filename component")
