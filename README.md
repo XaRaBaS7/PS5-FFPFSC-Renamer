@@ -64,7 +64,7 @@ The GUI enables the rename action only after a completed scan with no blocked/er
 
 ## Windows quick start
 
-Python 3.11+ is currently required for the development preview.
+Python 3.11+ is currently required for the development preview. `RUN.bat` automatically detects supported Python 3.11, 3.12, 3.13 or 3.14 installations.
 
 1. Clone or download this repository.
 2. Double-click:
@@ -83,11 +83,28 @@ The Windows UI uses an original dark-violet `tkinter/ttk` design with:
 - MkPFS engine status;
 - scanned/ready/blocked summary cards;
 - folder browser and recursive scan option;
+- real-time analysis progress bar;
+- completed/total counter, percentage, elapsed time and ETA;
+- cancellable MkPFS metadata reads;
+- selectable analysis worker count;
 - metadata library table;
 - proposed filename preview;
 - explicit rename confirmation.
 
 The visual direction is inspired by modern PS5 homebrew utilities, while the layout and implementation in this repository are original.
+
+## Performance
+
+FFPFSC files may be very large, but the renamer requests only `sce_sys/param.json`; it does not unpack the full game image. Even so, large libraries and slower storage can take time because each container still has to be opened and inspected.
+
+The GUI offers these analysis worker settings:
+
+- **1 (HDD / safest)** — recommended for mechanical hard drives and the safest default;
+- **2** — useful for faster storage without creating too much parallel I/O;
+- **4 (SSD / NVMe)** — intended for fast solid-state storage;
+- **Auto** — currently uses up to two concurrent readers as a conservative balance.
+
+CPU affinity and GPU acceleration are intentionally not used. The metadata operation is primarily storage-bound, so assigning more CPU cores or a GPU generally does not make it faster and can make a mechanical disk slower if too many reads happen in parallel.
 
 ## Architecture
 
@@ -130,6 +147,8 @@ MkPFS is a separate GPL-3.0 project and is **not copied into this repository**. 
 - [x] Initial Windows GUI
 - [x] Synthetic `.ffpfsc` end-to-end test
 - [x] Windows development launcher
+- [x] Progress / ETA / cancellation
+- [x] Configurable analysis workers
 
 ### v0.2.0
 
