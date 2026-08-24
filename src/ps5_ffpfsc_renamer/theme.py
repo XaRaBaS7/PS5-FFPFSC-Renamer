@@ -92,6 +92,12 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         font=("Segoe UI", 9),
     )
     style.configure(
+        "CardInfo.TLabel",
+        background=COLORS["panel"],
+        foreground=COLORS["text_soft"],
+        font=("Segoe UI", 9),
+    )
+    style.configure(
         "StatNumber.TLabel",
         background=COLORS["panel"],
         foreground=COLORS["text"],
@@ -127,6 +133,20 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         padding=(12, 8),
     )
     style.map("Secondary.TButton", background=[("active", COLORS["panel_hover"])])
+    style.configure(
+        "Danger.TButton",
+        background=COLORS["danger_soft"],
+        foreground=COLORS["danger"],
+        bordercolor=COLORS["danger"],
+        borderwidth=1,
+        padding=(12, 8),
+        font=("Segoe UI", 9, "bold"),
+    )
+    style.map(
+        "Danger.TButton",
+        background=[("active", COLORS["danger"]), ("disabled", COLORS["panel_alt"])],
+        foreground=[("active", "#ffffff"), ("disabled", COLORS["muted_dark"])],
+    )
 
     style.configure(
         "Library.Treeview",
@@ -154,6 +174,33 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
 
     style.configure("TCheckbutton", background=COLORS["panel"], foreground=COLORS["text_soft"])
     style.map("TCheckbutton", background=[("active", COLORS["panel"])])
+    style.configure(
+        "Performance.TCombobox",
+        fieldbackground=COLORS["panel_alt"],
+        background=COLORS["panel_alt"],
+        foreground=COLORS["text"],
+        arrowcolor=COLORS["muted"],
+        bordercolor=COLORS["border"],
+        lightcolor=COLORS["border"],
+        darkcolor=COLORS["border"],
+        padding=(7, 6),
+    )
+    style.map(
+        "Performance.TCombobox",
+        fieldbackground=[("readonly", COLORS["panel_alt"])],
+        foreground=[("readonly", COLORS["text"])],
+        selectbackground=[("readonly", COLORS["panel_alt"])],
+        selectforeground=[("readonly", COLORS["text"])],
+    )
+    style.configure(
+        "Scan.Horizontal.TProgressbar",
+        troughcolor=COLORS["panel_alt"],
+        background=COLORS["accent"],
+        bordercolor=COLORS["panel_alt"],
+        lightcolor=COLORS["accent"],
+        darkcolor=COLORS["accent"],
+        thickness=10,
+    )
     style.configure(
         "Vertical.TScrollbar",
         background=COLORS["panel_alt"],
