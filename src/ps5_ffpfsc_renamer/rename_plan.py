@@ -30,7 +30,6 @@ class RenamePlanItem:
     status: PlanStatus
     reason: str = ""
     target_directory: Path | None = None
-    # Set only when Smart mode will rename an existing dedicated game folder.
     source_directory: Path | None = None
 
     @property
@@ -80,8 +79,8 @@ def _destination_for(
     parent = source.parent.resolve()
     root = (library_root or parent).resolve()
 
-    # The selected library root is never renamed. Loose files in the root are
-    # organized into a new generated folder instead.
+    # The selected root is never renamed. A loose file in that root gets a
+    # generated per-game folder instead.
     if _path_key(parent) == _path_key(root):
         target_directory = root / stem
         return target_directory / filename, target_directory, None
@@ -100,8 +99,7 @@ def _destination_for(
 
     target_directory = parent.with_name(stem)
 
-    # Folder already has the desired generated name: only the file may need a
-    # rename. This also makes a second run idempotent.
+    # Folder is already correctly named: only rename the file if necessary.
     if _path_key(target_directory) == _path_key(parent):
         return parent / filename, None, None
 
@@ -115,7 +113,12 @@ def build_rename_plan(
     library_root: Path | None = None,
 ) -> list[RenamePlanItem]:
     options = options or NamingOptions()
-    root = library_root.resolve() if library_root is not None else None
+    if library_root is not None:
+        root = library_root.resolve()
+    elif options.library_root:
+        root = Path(options.library_root).resolve()
+    else:
+        root = None
 
     destinations: dict[str, int] = {}
     directory_targets: dict[str, int] = {}
@@ -143,10 +146,11 @@ def build_rename_plan(
             (source, destination, target_directory, source_directory, metadata, error)
         )
         if error is None:
-            destinations[_path_key(destination)] = destinations.get(_path_key(destination), 0) + 1
+            destination_key = _path_key(destination)
+            destinations[destination_key] = destinations.get(destination_key, 0) + 1
             if target_directory is not None:
-                key = _path_key(target_directory)
-                directory_targets[key] = directory_targets.get(key, 0) + 1
+                directory_key = _path_key(target_directory)
+                directory_targets[directory_key] = directory_targets.get(directory_key, 0) + 1
 
     result: list[RenamePlanItem] = []
     for source, destination, target_directory, source_directory, metadata, error in provisional:
@@ -187,8 +191,6 @@ def build_rename_plan(
             add(PlanStatus.UNCHANGED, "already named")
             continue
 
-        # Smart rename of an existing folder: never merge it into an existing
-        # destination directory.
         if source_directory is not None and target_directory is not None:
             if not source_directory.exists() or not source_directory.is_dir():
                 add(PlanStatus.INVALID, "source folder missing")
@@ -196,9 +198,6 @@ def build_rename_plan(
             if target_directory.exists():
                 add(PlanStatus.COLLISION, "target folder already exists")
                 continue
-
-        # Creating a new per-game folder is also conservative: an existing
-        # folder is considered a collision instead of silently merging data.
         elif target_directory is not None and target_directory.exists():
             add(PlanStatus.COLLISION, "target folder already exists")
             continue
