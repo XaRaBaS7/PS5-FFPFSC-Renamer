@@ -89,9 +89,22 @@ The metadata reader is kept separate from the GUI so that parsing can be tested 
 - [ ] Automated Windows build
 - [ ] Tested error handling on large libraries
 
-## Important
+## ⚠️ Legal & Responsible Use
 
-This project does not include game content, keys, firmware, exploits, or copyrighted PS5 files. It is intended to operate only on files the user already possesses.
+**PS5-FFPFSC-Renamer is intended for homebrew use and lawful personal backups only.**
+
+Use this software only with games and content that you legally own and have personally dumped or backed up where permitted by applicable law.
+
+This project is not designed to, and does not intend to:
+
+- download, host, distribute, or provide games or copyrighted content;
+- decrypt retail packages or provide decryption keys;
+- bypass DRM, licensing systems, copy protection, or console security mechanisms;
+- provide firmware, exploits, piracy-enabling payloads, or copyrighted PS5 files.
+
+The intended function of the application is limited to reading metadata from local image files and performing user-approved filesystem rename operations. Users are responsible for ensuring that their use of the software complies with the laws and regulations applicable in their jurisdiction.
+
+This project is an independent community project and is **not affiliated with, sponsored by, or endorsed by Sony Interactive Entertainment Inc.** PlayStation and PS5 are trademarks of their respective owners.
 
 ## License
 
