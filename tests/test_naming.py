@@ -12,6 +12,7 @@ def test_compact_ps5_version() -> None:
     assert compact_ps5_version("01.000.000") == "1.0"
     assert compact_ps5_version("02.500.000") == "2.5"
     assert compact_ps5_version("01.250.000") == "1.25"
+    assert compact_ps5_version("01.005.000") == "1.005"
     assert compact_ps5_version("01.000.001") == "1.0.1"
 
 
