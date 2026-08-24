@@ -42,7 +42,9 @@ def test_mkpfs_roundtrip_metadata(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr or completed.stdout
     assert image.is_file()
 
-    metadata = read_metadata(image)
+    # Force a real MkPFS read here so this end-to-end test never passes only
+    # because a previous cache entry exists.
+    metadata = read_metadata(image, use_cache=False)
     assert metadata.title_id == "PPSA01285"
     assert metadata.title_name == "Synthetic Test Game"
     assert metadata.content_version == "01.000.000"
