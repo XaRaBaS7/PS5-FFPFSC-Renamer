@@ -5,7 +5,14 @@ from enum import Enum
 from pathlib import Path
 
 from .metadata import GameMetadata
-from .naming import NamingOptions, build_output_stem
+from .naming import (
+    FOLDER_ALWAYS_NEW,
+    FOLDER_FILE_ONLY,
+    FOLDER_SMART,
+    NamingOptions,
+    build_output_stem,
+    effective_folder_handling,
+)
 
 
 class PlanStatus(str, Enum):
@@ -23,136 +30,183 @@ class RenamePlanItem:
     status: PlanStatus
     reason: str = ""
     target_directory: Path | None = None
+    # Set only when Smart mode will rename an existing dedicated game folder.
+    source_directory: Path | None = None
 
     @property
     def can_apply(self) -> bool:
         return self.status is PlanStatus.READY
+
+    @property
+    def renames_directory(self) -> bool:
+        return self.source_directory is not None and self.target_directory is not None
+
+
+def _path_key(path: Path) -> str:
+    return str(path.resolve()).casefold()
+
+
+def _ffpfsc_children(directory: Path) -> list[Path]:
+    try:
+        return [
+            child
+            for child in directory.iterdir()
+            if child.is_file() and child.suffix.lower() == ".ffpfsc"
+        ]
+    except OSError as exc:
+        raise ValueError(f"Unable to inspect folder {directory}: {exc}") from exc
 
 
 def _destination_for(
     source: Path,
     metadata: GameMetadata,
     options: NamingOptions,
-) -> tuple[Path, Path | None]:
+    library_root: Path | None,
+) -> tuple[Path, Path | None, Path | None]:
     stem = build_output_stem(metadata, options)
     filename = f"{stem}.ffpfsc"
-    if options.create_folder:
-        directory = source.parent / stem
-        return directory / filename, directory
-    return source.with_name(filename), None
+    mode = effective_folder_handling(options)
+
+    if mode == FOLDER_FILE_ONLY:
+        return source.with_name(filename), None, None
+
+    if mode == FOLDER_ALWAYS_NEW:
+        target_directory = source.parent / stem
+        return target_directory / filename, target_directory, None
+
+    if mode != FOLDER_SMART:
+        raise ValueError(f"Unsupported folder handling mode: {mode}")
+
+    parent = source.parent.resolve()
+    root = (library_root or parent).resolve()
+
+    # The selected library root is never renamed. Loose files in the root are
+    # organized into a new generated folder instead.
+    if _path_key(parent) == _path_key(root):
+        target_directory = root / stem
+        return target_directory / filename, target_directory, None
+
+    try:
+        parent.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("source folder is outside the selected library root") from exc
+
+    ffpfsc_files = _ffpfsc_children(parent)
+    if len(ffpfsc_files) != 1:
+        raise ValueError(
+            f"Smart folder handling requires exactly one .ffpfsc in '{parent.name}' "
+            f"(found {len(ffpfsc_files)})"
+        )
+
+    target_directory = parent.with_name(stem)
+
+    # Folder already has the desired generated name: only the file may need a
+    # rename. This also makes a second run idempotent.
+    if _path_key(target_directory) == _path_key(parent):
+        return parent / filename, None, None
+
+    return target_directory / filename, target_directory, parent
 
 
 def build_rename_plan(
     items: list[tuple[Path, GameMetadata]],
     options: NamingOptions | None = None,
+    *,
+    library_root: Path | None = None,
 ) -> list[RenamePlanItem]:
     options = options or NamingOptions()
+    root = library_root.resolve() if library_root is not None else None
+
     destinations: dict[str, int] = {}
-    provisional: list[tuple[Path, Path, Path | None, GameMetadata, str | None]] = []
+    directory_targets: dict[str, int] = {}
+    provisional: list[
+        tuple[Path, Path, Path | None, Path | None, GameMetadata, str | None]
+    ] = []
 
     for source, metadata in items:
         source = source.resolve()
         try:
-            destination, target_directory = _destination_for(source, metadata, options)
+            destination, target_directory, source_directory = _destination_for(
+                source,
+                metadata,
+                options,
+                root,
+            )
             error = None
         except ValueError as exc:
             destination = source
             target_directory = None
+            source_directory = None
             error = str(exc)
 
-        provisional.append((source, destination, target_directory, metadata, error))
+        provisional.append(
+            (source, destination, target_directory, source_directory, metadata, error)
+        )
         if error is None:
-            key = str(destination).casefold()
-            destinations[key] = destinations.get(key, 0) + 1
+            destinations[_path_key(destination)] = destinations.get(_path_key(destination), 0) + 1
+            if target_directory is not None:
+                key = _path_key(target_directory)
+                directory_targets[key] = directory_targets.get(key, 0) + 1
 
     result: list[RenamePlanItem] = []
-    for source, destination, target_directory, metadata, error in provisional:
-        if error is not None:
+    for source, destination, target_directory, source_directory, metadata, error in provisional:
+        def add(status: PlanStatus, reason: str = "") -> None:
             result.append(
                 RenamePlanItem(
-                    source,
-                    destination,
-                    metadata,
-                    PlanStatus.INVALID,
-                    error,
-                    target_directory,
+                    source=source,
+                    destination=destination,
+                    metadata=metadata,
+                    status=status,
+                    reason=reason,
+                    target_directory=target_directory,
+                    source_directory=source_directory,
                 )
             )
+
+        if error is not None:
+            add(PlanStatus.INVALID, error)
             continue
 
         if not source.exists() or not source.is_file():
-            result.append(
-                RenamePlanItem(
-                    source,
-                    destination,
-                    metadata,
-                    PlanStatus.INVALID,
-                    "source missing",
-                    target_directory,
-                )
-            )
+            add(PlanStatus.INVALID, "source missing")
             continue
 
-        if target_directory is None and source == destination:
-            result.append(
-                RenamePlanItem(
-                    source,
-                    destination,
-                    metadata,
-                    PlanStatus.UNCHANGED,
-                    "already named",
-                    target_directory,
-                )
-            )
+        if source_directory is not None and root is not None and _path_key(source_directory) == _path_key(root):
+            add(PlanStatus.INVALID, "selected library root cannot be renamed")
             continue
 
-        if destinations[str(destination).casefold()] > 1:
-            result.append(
-                RenamePlanItem(
-                    source,
-                    destination,
-                    metadata,
-                    PlanStatus.COLLISION,
-                    "duplicate target",
-                    target_directory,
-                )
-            )
+        if destinations[_path_key(destination)] > 1:
+            add(PlanStatus.COLLISION, "duplicate file target")
             continue
 
-        if destination.exists():
-            result.append(
-                RenamePlanItem(
-                    source,
-                    destination,
-                    metadata,
-                    PlanStatus.COLLISION,
-                    "target exists",
-                    target_directory,
-                )
-            )
+        if target_directory is not None and directory_targets[_path_key(target_directory)] > 1:
+            add(PlanStatus.COLLISION, "duplicate folder target")
             continue
 
-        if target_directory is not None and target_directory.exists() and not target_directory.is_dir():
-            result.append(
-                RenamePlanItem(
-                    source,
-                    destination,
-                    metadata,
-                    PlanStatus.COLLISION,
-                    "folder target is occupied by a file",
-                    target_directory,
-                )
-            )
+        if target_directory is None and _path_key(source) == _path_key(destination):
+            add(PlanStatus.UNCHANGED, "already named")
             continue
 
-        result.append(
-            RenamePlanItem(
-                source,
-                destination,
-                metadata,
-                PlanStatus.READY,
-                target_directory=target_directory,
-            )
-        )
+        # Smart rename of an existing folder: never merge it into an existing
+        # destination directory.
+        if source_directory is not None and target_directory is not None:
+            if not source_directory.exists() or not source_directory.is_dir():
+                add(PlanStatus.INVALID, "source folder missing")
+                continue
+            if target_directory.exists():
+                add(PlanStatus.COLLISION, "target folder already exists")
+                continue
+
+        # Creating a new per-game folder is also conservative: an existing
+        # folder is considered a collision instead of silently merging data.
+        elif target_directory is not None and target_directory.exists():
+            add(PlanStatus.COLLISION, "target folder already exists")
+            continue
+
+        if destination.exists() and _path_key(destination) != _path_key(source):
+            add(PlanStatus.COLLISION, "target file already exists")
+            continue
+
+        add(PlanStatus.READY)
 
     return result
