@@ -48,40 +48,64 @@ Before any rename, the program will perform a dry run and check:
 - two scanned files do not resolve to the same destination;
 - source and destination are not the same path.
 
+## Legal & Responsible Use
+
+> ⚠️ **Homebrew & Personal Backup Tool**
+>
+> PS5-FFPFSC-Renamer is intended for lawful homebrew use and for managing personal backup images created from games or content that you legally own and have dumped yourself.
+>
+> The project does **not** download or distribute games, decrypt retail packages, provide encryption or license keys, bypass DRM or license checks, distribute copyrighted PlayStation files, or include firmware, exploits or payloads.
+>
+> Users are responsible for complying with the laws and license terms that apply in their country. This project is not affiliated with, sponsored by, or endorsed by Sony Interactive Entertainment.
+
 ## Architecture
 
 ```text
 src/ps5_ffpfsc_renamer/
-├── app.py              # application entry point
+├── cli.py              # command-line entry point
+├── gui.py              # Windows desktop interface
 ├── scanner.py          # folder/file discovery
 ├── metadata.py         # normalized metadata model
-├── ffpfsc_reader.py    # container metadata reader
+├── ffpfsc_reader.py    # metadata extraction adapter
 ├── rename_plan.py      # dry-run and collision checks
-└── renamer.py          # explicit filesystem rename operation
+├── renamer.py          # explicit filesystem rename operation
+└── theme.py            # original dark-violet ttk theme
 ```
 
 The metadata reader is kept separate from the GUI so that parsing can be tested independently before enabling batch rename.
+
+### MkPFS integration
+
+The first implementation uses the external MkPFS command-line interface to cherry-pick `sce_sys/param.json` from an image:
+
+```text
+mkpfs unpack game.ffpfsc temp-dir --deep --only sce_sys/param.json --no-progress
+```
+
+MkPFS documents that `--only` reads only matching entries, making this suitable for metadata inspection without extracting the complete image.
+
+MkPFS is a separate GPL-3.0 project and is **not copied into this repository**. Install it separately when using the metadata reader.
 
 ## Development roadmap
 
 ### v0.1.0
 
 - [x] Repository bootstrap
-- [ ] Folder scanner
-- [ ] Metadata model
-- [ ] `.ffpfsc` metadata extraction proof of concept
-- [ ] PPSA validation
-- [ ] Rename dry-run
-- [ ] Collision detection
-- [ ] Command-line test interface
+- [x] Folder scanner
+- [x] Metadata model
+- [x] `.ffpfsc` metadata extraction proof of concept
+- [x] Title ID / PPSA validation
+- [x] Rename dry-run
+- [x] Collision detection
+- [x] Command-line test interface
+- [x] Initial Windows GUI
 
 ### v0.2.0
 
-- [ ] Windows GUI
 - [ ] Drag & drop
-- [ ] Batch selection
 - [ ] Rename log
 - [ ] Configurable filename formats
+- [ ] Cover art / richer library metadata
 
 ### v1.0.0
 
@@ -89,23 +113,36 @@ The metadata reader is kept separate from the GUI so that parsing can be tested 
 - [ ] Automated Windows build
 - [ ] Tested error handling on large libraries
 
-## ⚠️ Legal & Responsible Use
+## Development
 
-**PS5-FFPFSC-Renamer is intended for homebrew use and lawful personal backups only.**
+Python 3.11+ is recommended.
 
-Use this software only with games and content that you legally own and have personally dumped or backed up where permitted by applicable law.
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .[dev]
+pip install -U mkpfs
+pytest
+```
 
-This project is not designed to, and does not intend to:
+Run the GUI:
 
-- download, host, distribute, or provide games or copyrighted content;
-- decrypt retail packages or provide decryption keys;
-- bypass DRM, licensing systems, copy protection, or console security mechanisms;
-- provide firmware, exploits, piracy-enabling payloads, or copyrighted PS5 files.
+```powershell
+ps5-ffpfsc-renamer-gui
+```
 
-The intended function of the application is limited to reading metadata from local image files and performing user-approved filesystem rename operations. Users are responsible for ensuring that their use of the software complies with the laws and regulations applicable in their jurisdiction.
+Run a dry scan from the command line:
 
-This project is an independent community project and is **not affiliated with, sponsored by, or endorsed by Sony Interactive Entertainment Inc.** PlayStation and PS5 are trademarks of their respective owners.
+```powershell
+ps5-ffpfsc-renamer scan "D:\PS5\FFPFSC"
+```
+
+Apply a previously validated rename plan explicitly:
+
+```powershell
+ps5-ffpfsc-renamer rename "D:\PS5\FFPFSC"
+```
 
 ## License
 
-No license has been selected yet.
+No project license has been selected yet.

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ps5-ffpfsc-renamer"
+version = "0.1.0"
+description = "Safely inspect PS5 FFPFSC metadata and preview or apply batch renames."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+ps5-ffpfsc-renamer = "ps5_ffpfsc_renamer.cli:main"
+ps5-ffpfsc-renamer-gui = "ps5_ffpfsc_renamer.gui:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
