@@ -44,6 +44,7 @@ def compact_ps5_version(value: str | None) -> str | None:
         01.000.000 -> 1.0
         02.500.000 -> 2.5
         01.250.000 -> 1.25
+        01.005.000 -> 1.005
         01.000.001 -> 1.0.1
     """
     if not value:
@@ -57,15 +58,12 @@ def compact_ps5_version(value: str | None) -> str | None:
     if len(parts) == 1:
         return major
 
-    minor_raw = parts[1]
-    minor = minor_raw.lstrip("0")
-    if not minor:
-        minor = "0"
-    else:
-        # PS5's fixed-width fractional group uses trailing zero padding.
-        minor = minor.rstrip("0") or "0"
-
+    # The second group behaves like a fixed-width decimal fraction. Keep
+    # leading zeros (005 -> .005) and remove only trailing padding zeros
+    # (500 -> .5, 250 -> .25, 000 -> .0).
+    minor = parts[1].rstrip("0") or "0"
     result = f"{major}.{minor}"
+
     for extra in parts[2:]:
         if int(extra) != 0:
             result += f".{int(extra)}"
