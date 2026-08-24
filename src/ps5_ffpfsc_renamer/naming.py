@@ -10,6 +10,11 @@ COMPONENT_TITLE = "title"
 COMPONENT_VERSION = "version"
 COMPONENTS = (COMPONENT_TITLE_ID, COMPONENT_TITLE, COMPONENT_VERSION)
 
+FOLDER_FILE_ONLY = "file_only"
+FOLDER_SMART = "smart"
+FOLDER_ALWAYS_NEW = "always_new"
+FOLDER_HANDLING_MODES = (FOLDER_FILE_ONLY, FOLDER_SMART, FOLDER_ALWAYS_NEW)
+
 _WINDOWS_RESERVED = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{i}" for i in range(1, 10)),
@@ -26,9 +31,21 @@ class NamingOptions:
     include_version: bool = False
     compact_version: bool = True
     version_prefix: bool = True
+    # Backward-compatible flag used by the older UI/tests. When True and
+    # folder_handling is left at file_only it maps to always_new.
     create_folder: bool = False
+    folder_handling: str = FOLDER_FILE_ONLY
     separator: str = " - "
     component_order: tuple[str, ...] = COMPONENTS
+
+
+def effective_folder_handling(options: NamingOptions) -> str:
+    mode = options.folder_handling
+    if mode not in FOLDER_HANDLING_MODES:
+        raise ValueError(f"Unknown folder handling mode: {mode}")
+    if mode == FOLDER_FILE_ONLY and options.create_folder:
+        return FOLDER_ALWAYS_NEW
+    return mode
 
 
 def sanitize_windows_component(value: str) -> str:
@@ -80,12 +97,6 @@ def display_version(metadata: GameMetadata, compact: bool = True) -> str | None:
 
 
 def _validated_component_order(order: tuple[str, ...]) -> tuple[str, ...]:
-    """Validate a user-selected component order.
-
-    Missing known components are appended so older callers and partially
-    specified custom orders remain deterministic. Unknown or duplicate
-    components are rejected because they would make the preview misleading.
-    """
     seen: set[str] = set()
     normalized: list[str] = []
     for component in order:
@@ -128,8 +139,7 @@ def build_output_stem(metadata: GameMetadata, options: NamingOptions) -> str:
     if not parts:
         raise ValueError("Output format must include at least one available filename component")
 
-    stem = options.separator.join(parts)
-    return sanitize_windows_component(stem)
+    return sanitize_windows_component(options.separator.join(parts))
 
 
 def example_output(options: NamingOptions) -> str:
@@ -141,6 +151,6 @@ def example_output(options: NamingOptions) -> str:
     )
     stem = build_output_stem(metadata, options)
     filename = f"{stem}.ffpfsc"
-    if options.create_folder:
+    if effective_folder_handling(options) != FOLDER_FILE_ONLY:
         return f"{stem}\\{filename}"
     return filename
