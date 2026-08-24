@@ -121,7 +121,7 @@ class RenamerApp(RenamerAppV4):
 
         menu.add_separator()
         menu.add_command(
-            label="Move to Recycle Bin...",
+            label="Delete (move to Recycle Bin)...",
             command=lambda path=source: self._move_to_recycle_bin(path),
         )
 
@@ -318,6 +318,12 @@ class RenamerApp(RenamerAppV4):
         except Exception as exc:
             messagebox.showerror("Recycle Bin", str(exc), parent=self)
             return
+
+        try:
+            self.cache.remove(source)
+        except Exception:
+            pass
+        self.cache_entries_var.set(str(self.cache.entry_count()))
 
         self.parsed_items = [
             (path, metadata)
