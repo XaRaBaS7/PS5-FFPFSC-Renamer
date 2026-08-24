@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+import webbrowser
 from tkinter import ttk
 
 from .gui_v2 import RenamerApp as RenamerAppV2
@@ -21,6 +22,8 @@ from .theme import COLORS
 
 class RenamerApp(RenamerAppV2):
     """Desktop UI with a compact, reorderable filename builder."""
+
+    REPOSITORY_URL = "https://github.com/XaRaBaS7/PS5-FFPFSC-Renamer"
 
     PRESET_PPSA = "PPSA only (compatible)"
     PRESET_TITLE_ONLY = "Title only"
@@ -211,6 +214,49 @@ class RenamerApp(RenamerAppV2):
         # Request a useful number of visible rows. The table still expands and
         # shrinks with the window, but now gets priority over configuration UI.
         self.tree.configure(height=14)
+
+    def _build_footer(self, parent: ttk.Frame) -> None:
+        footer = ttk.Frame(parent)
+        footer.pack(fill="x")
+
+        ttk.Label(footer, textvariable=self.status_var, style="Subtitle.TLabel").pack(
+            side="left"
+        )
+
+        author_box = tk.Frame(footer, bg=COLORS["bg"])
+        author_box.pack(side="right", padx=(14, 0))
+        tk.Label(
+            author_box,
+            text="Created by ",
+            bg=COLORS["bg"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 9),
+        ).pack(side="left")
+        author = tk.Label(
+            author_box,
+            text="XaRaBaS",
+            bg=COLORS["bg"],
+            fg=COLORS["accent_hover"],
+            font=("Segoe UI", 9, "underline"),
+            cursor="hand2",
+        )
+        author.pack(side="left")
+        author.bind("<Button-1>", self._open_repository)
+        author.bind("<Enter>", lambda _event: author.configure(fg=COLORS["accent"]))
+        author.bind("<Leave>", lambda _event: author.configure(fg=COLORS["accent_hover"]))
+
+        self.rename_button = ttk.Button(
+            footer,
+            text="Apply rename plan",
+            style="Primary.TButton",
+            command=self._rename,
+            state="disabled",
+        )
+        self.rename_button.pack(side="right")
+
+    def _open_repository(self, _event=None) -> str:
+        webbrowser.open_new_tab(self.REPOSITORY_URL)
+        return "break"
 
     def _component_definition(self, component: str):
         if component == COMPONENT_TITLE_ID:
