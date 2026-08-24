@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -14,11 +15,20 @@ class MetadataReadError(RuntimeError):
     pass
 
 
+def mkpfs_available() -> bool:
+    """Return True when MkPFS can be launched from this Python environment."""
+    return shutil.which("mkpfs") is not None or importlib.util.find_spec("mkpfs") is not None
+
+
 def _mkpfs_command() -> list[str]:
     executable = shutil.which("mkpfs")
     if executable:
         return [executable]
-    return [sys.executable, "-m", "mkpfs"]
+    if importlib.util.find_spec("mkpfs") is not None:
+        return [sys.executable, "-m", "mkpfs"]
+    raise MetadataReadError(
+        "MkPFS is not installed. Install it with: python -m pip install mkpfs==0.0.9"
+    )
 
 
 def read_metadata(image: Path, timeout: int = 120) -> GameMetadata:
