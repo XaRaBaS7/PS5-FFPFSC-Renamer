@@ -20,7 +20,7 @@ from .theme import COLORS
 
 
 class RenamerApp(RenamerAppV2):
-    """Desktop UI with a visual, reorderable filename builder."""
+    """Desktop UI with a compact, reorderable filename builder."""
 
     PRESET_PPSA = "PPSA only (compatible)"
     PRESET_TITLE_ONLY = "Title only"
@@ -43,21 +43,26 @@ class RenamerApp(RenamerAppV2):
         ]
         super().__init__()
 
+    # ----------------------------------------------------------- compact UI
     def _build_output_controls(self, card: ttk.Frame) -> None:
-        ttk.Label(card, text="Filename Builder", style="CardTitle.TLabel").pack(anchor="w")
+        header = ttk.Frame(card, style="Card.TFrame")
+        header.pack(fill="x")
+        ttk.Label(header, text="Filename Builder", style="CardTitle.TLabel").pack(side="left")
         ttk.Label(
-            card,
-            text="Choose what to include and move items up/down. Top item appears first in the filename.",
+            header,
+            text="Build the output name without rescanning files.",
             style="CardMuted.TLabel",
-        ).pack(anchor="w", pady=(2, 8))
+        ).pack(side="left", padx=(10, 0))
 
-        preset_row = ttk.Frame(card, style="Card.TFrame")
-        preset_row.pack(fill="x")
-        ttk.Label(preset_row, text="Quick preset", style="CardMuted.TLabel").pack(
-            side="left", padx=(0, 6)
+        # Preset and folder handling share one compact row.
+        controls = ttk.Frame(card, style="Card.TFrame")
+        controls.pack(fill="x", pady=(7, 0))
+
+        ttk.Label(controls, text="Preset", style="CardMuted.TLabel").pack(
+            side="left", padx=(0, 5)
         )
         self.preset_combo = ttk.Combobox(
-            preset_row,
+            controls,
             textvariable=self.preset_var,
             values=(
                 self.PRESET_PPSA,
@@ -70,52 +75,18 @@ class RenamerApp(RenamerAppV2):
                 self.PRESET_CUSTOM,
             ),
             state="readonly",
-            width=28,
+            width=24,
             style="Performance.TCombobox",
         )
         self.preset_combo.pack(side="left")
         self.preset_combo.bind("<<ComboboxSelected>>", self._apply_preset)
 
-        ttk.Label(card, text="Filename order", style="CardMuted.TLabel").pack(
-            anchor="w", pady=(10, 5)
-        )
-
-        self.order_editor = tk.Frame(card, bg=COLORS["panel"])
-        self.order_editor.pack(fill="x")
-        self._render_order_editor()
-
-        version_row = ttk.Frame(card, style="Card.TFrame")
-        version_row.pack(fill="x", pady=(9, 0))
-        ttk.Label(version_row, text="Version", style="CardMuted.TLabel").pack(
-            side="left", padx=(0, 6)
-        )
-        self.version_combo = ttk.Combobox(
-            version_row,
-            textvariable=self.version_format_var,
-            values=(self.VERSION_COMPACT, self.VERSION_ORIGINAL),
-            state="readonly",
-            width=21,
-            style="Performance.TCombobox",
-        )
-        self.version_combo.pack(side="left")
-        self.version_combo.bind("<<ComboboxSelected>>", self._output_setting_changed)
-
-        self.version_prefix_check = ttk.Checkbutton(
-            version_row,
-            text="Prefix 'v'",
-            variable=self.version_prefix_var,
-            command=self._output_setting_changed,
-        )
-        self.version_prefix_check.pack(side="left", padx=(9, 5))
-
-        folder_row = ttk.Frame(card, style="Card.TFrame")
-        folder_row.pack(fill="x", pady=(8, 0))
-        ttk.Label(folder_row, text="Folder handling", style="CardMuted.TLabel").pack(
-            side="left", padx=(0, 6)
+        ttk.Label(controls, text="Folder", style="CardMuted.TLabel").pack(
+            side="left", padx=(14, 5)
         )
         self.folder_mode_var = tk.StringVar(value=self.FOLDER_SMART_LABEL)
         self.folder_mode_combo = ttk.Combobox(
-            folder_row,
+            controls,
             textvariable=self.folder_mode_var,
             values=(
                 self.FOLDER_SMART_LABEL,
@@ -123,10 +94,10 @@ class RenamerApp(RenamerAppV2):
                 self.FOLDER_ALWAYS_NEW_LABEL,
             ),
             state="readonly",
-            width=27,
+            width=22,
             style="Performance.TCombobox",
         )
-        self.folder_mode_combo.pack(side="left")
+        self.folder_mode_combo.pack(side="left", fill="x", expand=True)
         self.folder_mode_combo.bind("<<ComboboxSelected>>", self._folder_mode_changed)
 
         self.folder_help_var = tk.StringVar()
@@ -134,33 +105,116 @@ class RenamerApp(RenamerAppV2):
             card,
             textvariable=self.folder_help_var,
             style="CardMuted.TLabel",
-            wraplength=620,
+            wraplength=720,
             justify="left",
-        ).pack(anchor="w", pady=(4, 0))
+        ).pack(anchor="w", pady=(3, 0))
         self._update_folder_help()
 
-        ttk.Label(card, text="Live preview", style="CardMuted.TLabel").pack(
-            anchor="w", pady=(9, 4)
+        order_header = ttk.Frame(card, style="Card.TFrame")
+        order_header.pack(fill="x", pady=(7, 3))
+        ttk.Label(order_header, text="Filename order", style="CardMuted.TLabel").pack(side="left")
+        ttk.Label(
+            order_header,
+            text="Use ← / → to choose what comes first.",
+            style="CardMuted.TLabel",
+        ).pack(side="left", padx=(8, 0))
+
+        # The three filename components are horizontal instead of three tall
+        # rows. This keeps the results table as the dominant part of the app.
+        self.order_editor = tk.Frame(card, bg=COLORS["panel"])
+        self.order_editor.pack(fill="x")
+        self._render_order_editor()
+
+        settings = ttk.Frame(card, style="Card.TFrame")
+        settings.pack(fill="x", pady=(7, 0))
+        ttk.Label(settings, text="Version", style="CardMuted.TLabel").pack(
+            side="left", padx=(0, 5)
+        )
+        self.version_combo = ttk.Combobox(
+            settings,
+            textvariable=self.version_format_var,
+            values=(self.VERSION_COMPACT, self.VERSION_ORIGINAL),
+            state="readonly",
+            width=19,
+            style="Performance.TCombobox",
+        )
+        self.version_combo.pack(side="left")
+        self.version_combo.bind("<<ComboboxSelected>>", self._output_setting_changed)
+
+        self.version_prefix_check = ttk.Checkbutton(
+            settings,
+            text="Prefix 'v'",
+            variable=self.version_prefix_var,
+            command=self._output_setting_changed,
+        )
+        self.version_prefix_check.pack(side="left", padx=(8, 12))
+
+        ttk.Label(settings, text="Preview", style="CardMuted.TLabel").pack(
+            side="left", padx=(0, 5)
         )
         preview = tk.Frame(
-            card,
+            settings,
             bg=COLORS["panel_alt"],
             highlightthickness=1,
             highlightbackground=COLORS["border"],
         )
-        preview.pack(fill="x")
+        preview.pack(side="left", fill="x", expand=True)
         tk.Label(
             preview,
             textvariable=self.output_preview_var,
             bg=COLORS["panel_alt"],
             fg=COLORS["accent_hover"],
-            font=("Consolas", 9),
+            font=("Consolas", 8),
             anchor="w",
-        ).pack(fill="x", padx=9, pady=7)
+        ).pack(fill="x", padx=7, pady=5)
+
+    def _build_progress(self, parent: ttk.Frame) -> None:
+        """Compact progress card so completed scans leave room for results."""
+        card = ttk.Frame(parent, style="Card.TFrame", padding=(12, 7))
+        card.pack(fill="x", pady=(8, 0))
+
+        top = ttk.Frame(card, style="Card.TFrame")
+        top.pack(fill="x")
+        ttk.Label(top, text="Analysis", style="CardTitle.TLabel").pack(side="left")
+        ttk.Label(
+            top,
+            textvariable=self.progress_detail_var,
+            style="CardInfo.TLabel",
+        ).pack(side="left", padx=(10, 0))
+        self.cancel_button = ttk.Button(
+            top,
+            text="Cancel",
+            style="Danger.TButton",
+            command=self._cancel_scan,
+            state="disabled",
+        )
+        self.cancel_button.pack(side="right")
+
+        ttk.Progressbar(
+            card,
+            variable=self.progress_var,
+            maximum=100,
+            mode="determinate",
+            style="Scan.Horizontal.TProgressbar",
+        ).pack(fill="x", pady=(5, 0))
+
+        ttk.Label(
+            card,
+            textvariable=self.progress_note_var,
+            style="CardMuted.TLabel",
+            wraplength=1050,
+            justify="left",
+        ).pack(fill="x", pady=(3, 0))
+
+    def _build_table(self, parent: ttk.Frame) -> None:
+        super()._build_table(parent)
+        # Request a useful number of visible rows. The table still expands and
+        # shrinks with the window, but now gets priority over configuration UI.
+        self.tree.configure(height=14)
 
     def _component_definition(self, component: str):
         if component == COMPONENT_TITLE_ID:
-            return "PPSA / Title ID", "PPSA01285", self.include_id_var
+            return "PPSA / ID", "PPSA01285", self.include_id_var
         if component == COMPONENT_TITLE:
             return "Game title", "Returnal", self.include_title_var
         if component == COMPONENT_VERSION:
@@ -171,62 +225,61 @@ class RenamerApp(RenamerAppV2):
         for child in self.order_editor.winfo_children():
             child.destroy()
 
+        for column in range(3):
+            self.order_editor.grid_columnconfigure(column, weight=1, uniform="filename_order")
+
         for index, component in enumerate(self.component_order):
-            label, sample, variable = self._component_definition(component)
-            row = tk.Frame(
+            label, _sample, variable = self._component_definition(component)
+            item = tk.Frame(
                 self.order_editor,
                 bg=COLORS["panel_alt"],
                 highlightthickness=1,
                 highlightbackground=COLORS["border"],
             )
-            row.pack(fill="x", pady=(0, 4))
+            item.grid(
+                row=0,
+                column=index,
+                sticky="ew",
+                padx=(0 if index == 0 else 3, 0 if index == 2 else 3),
+            )
 
             tk.Label(
-                row,
+                item,
                 text=str(index + 1),
                 bg=COLORS["accent_soft"],
                 fg=COLORS["accent_hover"],
                 font=("Segoe UI", 9, "bold"),
-                width=3,
+                width=2,
             ).pack(side="left", fill="y", ipady=6)
 
             ttk.Checkbutton(
-                row,
+                item,
                 text=label,
                 variable=variable,
                 command=self._component_enabled_changed,
-            ).pack(side="left", padx=(8, 5))
+            ).pack(side="left", padx=(5, 2))
 
-            tk.Label(
-                row,
-                text=sample,
-                bg=COLORS["panel_alt"],
-                fg=COLORS["muted"],
-                font=("Consolas", 8),
-                anchor="w",
-            ).pack(side="left", fill="x", expand=True, padx=(4, 8))
-
-            down = ttk.Button(
-                row,
-                text="↓",
-                width=3,
+            right = ttk.Button(
+                item,
+                text="→",
+                width=2,
                 style="Secondary.TButton",
                 command=lambda i=index: self._move_component(i, 1),
             )
-            down.pack(side="right", padx=(2, 5), pady=3)
+            right.pack(side="right", padx=(1, 3), pady=2)
             if index == len(self.component_order) - 1:
-                down.configure(state="disabled")
+                right.configure(state="disabled")
 
-            up = ttk.Button(
-                row,
-                text="↑",
-                width=3,
+            left = ttk.Button(
+                item,
+                text="←",
+                width=2,
                 style="Secondary.TButton",
                 command=lambda i=index: self._move_component(i, -1),
             )
-            up.pack(side="right", padx=2, pady=3)
+            left.pack(side="right", padx=1, pady=2)
             if index == 0:
-                up.configure(state="disabled")
+                left.configure(state="disabled")
 
     def _move_component(self, index: int, direction: int) -> None:
         target = index + direction
@@ -272,14 +325,11 @@ class RenamerApp(RenamerAppV2):
     def _update_folder_help(self) -> None:
         mode = self._folder_mode()
         if mode == FOLDER_SMART:
-            text = (
-                "Smart: loose files get a folder; if a file is already inside a dedicated folder, "
-                "both folder and file are renamed. Folders containing multiple FFPFSC files are blocked."
-            )
+            text = "Smart: loose → new folder • dedicated folder → rename folder + file • multiple FFPFSC → blocked"
         elif mode == FOLDER_FILE_ONLY:
-            text = "File only: rename the .ffpfsc file and leave every folder name unchanged."
+            text = "File only: rename the .ffpfsc and leave folder names unchanged."
         else:
-            text = "Always create new folder: create a new generated subfolder and move the .ffpfsc into it."
+            text = "Always new: create a generated subfolder and move the .ffpfsc into it."
         self.folder_help_var.set(text)
 
     def _refresh_output_preview(self) -> None:
