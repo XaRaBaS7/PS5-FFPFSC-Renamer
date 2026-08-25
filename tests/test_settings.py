@@ -44,6 +44,7 @@ def test_invalid_settings_do_not_break_startup(tmp_path: Path) -> None:
 def test_complete_settings_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "settings.json"
     root = tmp_path / "library"
+    mkpfs = tmp_path / "mkpfs-helper.exe"
     expected = AppSettings(
         library_roots=(str(root),),
         recursive=False,
@@ -58,6 +59,15 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
         component_order=("title", "version", "title_id"),
         result_filter="DUPLICATES",
         window_geometry="1440x900+10+20",
+        mkpfs_path=str(mkpfs),
+        sort_column="size",
+        sort_descending=True,
+        autoscan_on_start=False,
+        autoscan_on_browse=False,
+        autoscan_on_add_folder=False,
+        remember_window_geometry=False,
+        show_relative_paths=False,
+        auto_prune_cache=True,
     )
 
     save_settings(expected, path)
@@ -69,11 +79,31 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
     assert loaded.component_order == ("title", "version", "title_id")
     assert loaded.result_filter == "DUPLICATES"
     assert loaded.window_geometry == "1440x900+10+20"
+    assert loaded.mkpfs_path == str(mkpfs.resolve())
+    assert loaded.sort_column == "size"
+    assert loaded.sort_descending is True
+    assert loaded.autoscan_on_start is False
+    assert loaded.autoscan_on_browse is False
+    assert loaded.autoscan_on_add_folder is False
+    assert loaded.remember_window_geometry is False
+    assert loaded.show_relative_paths is False
+    assert loaded.auto_prune_cache is True
 
 
 def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     path = tmp_path / "settings.json"
-    save_settings(AppSettings(worker="2", include_title=True), path)
+    mkpfs = tmp_path / "mkpfs.exe"
+    save_settings(
+        AppSettings(
+            worker="2",
+            include_title=True,
+            mkpfs_path=str(mkpfs),
+            sort_column="title",
+            sort_descending=True,
+            autoscan_on_start=False,
+        ),
+        path,
+    )
     root = tmp_path / "new-root"
 
     save_library_roots([root], path)
@@ -82,6 +112,10 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     assert loaded.worker == "2"
     assert loaded.include_title is True
     assert loaded.library_roots == (str(root.resolve()),)
+    assert loaded.mkpfs_path == str(mkpfs.resolve())
+    assert loaded.sort_column == "title"
+    assert loaded.sort_descending is True
+    assert loaded.autoscan_on_start is False
 
 
 def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
@@ -97,6 +131,15 @@ def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
     assert loaded.library_roots == (str(root.resolve()),)
     assert loaded.recursive is True
     assert loaded.folder_mode == "Smart (recommended)"
+    assert loaded.mkpfs_path is None
+    assert loaded.sort_column == "file"
+    assert loaded.sort_descending is False
+    assert loaded.autoscan_on_start is True
+    assert loaded.autoscan_on_browse is True
+    assert loaded.autoscan_on_add_folder is True
+    assert loaded.remember_window_geometry is True
+    assert loaded.show_relative_paths is True
+    assert loaded.auto_prune_cache is False
 
 
 def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
@@ -104,6 +147,15 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     save_settings(AppSettings(), path)
     data = json.loads(path.read_text(encoding="utf-8"))
 
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 5
     assert "worker" in data
     assert "component_order" in data
+    assert "mkpfs_path" in data
+    assert "sort_column" in data
+    assert "sort_descending" in data
+    assert "autoscan_on_start" in data
+    assert "autoscan_on_browse" in data
+    assert "autoscan_on_add_folder" in data
+    assert "remember_window_geometry" in data
+    assert "show_relative_paths" in data
+    assert "auto_prune_cache" in data

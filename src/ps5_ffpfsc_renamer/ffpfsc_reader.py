@@ -24,6 +24,7 @@ class MetadataReadCancelled(MetadataReadError):
 
 _default_cache: MetadataCache | None = None
 _default_cache_lock = threading.Lock()
+_custom_mkpfs_executable: Path | None = None
 
 
 def _get_default_cache() -> MetadataCache:
@@ -33,6 +34,29 @@ def _get_default_cache() -> MetadataCache:
             if _default_cache is None:
                 _default_cache = MetadataCache()
     return _default_cache
+
+
+def set_mkpfs_executable(path: str | Path | None) -> Path | None:
+    """Set an optional MkPFS executable override for the current process.
+
+    Passing ``None`` restores automatic discovery. An invalid path is retained
+    as ``None`` so the bundled helper/PATH/Python fallback can still be used.
+    """
+    global _custom_mkpfs_executable
+    if path is None or not str(path).strip():
+        _custom_mkpfs_executable = None
+        return None
+    candidate = Path(path).expanduser()
+    try:
+        candidate = candidate.resolve(strict=False)
+    except OSError:
+        candidate = candidate.absolute()
+    _custom_mkpfs_executable = candidate if candidate.is_file() else None
+    return _custom_mkpfs_executable
+
+
+def get_mkpfs_executable() -> Path | None:
+    return _custom_mkpfs_executable
 
 
 def _bundled_mkpfs_helper() -> Path | None:
@@ -52,8 +76,25 @@ def _bundled_mkpfs_helper() -> Path | None:
     return None
 
 
+def mkpfs_source_description() -> str:
+    """Return a short description of the executable MkPFS source in use."""
+    if _custom_mkpfs_executable is not None and _custom_mkpfs_executable.is_file():
+        return f"Custom: {_custom_mkpfs_executable}"
+    helper = _bundled_mkpfs_helper()
+    if helper is not None:
+        return f"Bundled helper: {helper}"
+    executable = shutil.which("mkpfs")
+    if executable:
+        return f"PATH: {executable}"
+    if not getattr(sys, "frozen", False) and importlib.util.find_spec("mkpfs") is not None:
+        return "Python module: mkpfs"
+    return "Not available"
+
+
 def mkpfs_available() -> bool:
     """Return True when MkPFS can be launched from this environment."""
+    if _custom_mkpfs_executable is not None and _custom_mkpfs_executable.is_file():
+        return True
     helper = _bundled_mkpfs_helper()
     executable = shutil.which("mkpfs")
     if getattr(sys, "frozen", False):
@@ -62,6 +103,9 @@ def mkpfs_available() -> bool:
 
 
 def _mkpfs_command() -> list[str]:
+    if _custom_mkpfs_executable is not None and _custom_mkpfs_executable.is_file():
+        return [str(_custom_mkpfs_executable)]
+
     helper = _bundled_mkpfs_helper()
     if helper is not None:
         return [str(helper)]
@@ -78,7 +122,8 @@ def _mkpfs_command() -> list[str]:
 
     if getattr(sys, "frozen", False):
         raise MetadataReadError(
-            "The bundled MkPFS helper is missing. Reinstall/extract the complete PS5 FFPFSC Renamer release folder."
+            "The bundled MkPFS helper is missing and no custom executable is configured. "
+            "Reinstall/extract the complete PS5 FFPFSC Renamer release folder."
         )
     raise MetadataReadError(
         "MkPFS is not installed. Install it with: python -m pip install mkpfs==0.0.9"

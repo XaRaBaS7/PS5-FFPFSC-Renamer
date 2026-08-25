@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from ps5_ffpfsc_renamer.metadata import GameMetadata
+from ps5_ffpfsc_renamer.rename_plan import PlanStatus, RenamePlanItem
+from ps5_ffpfsc_renamer.renamer import apply_rename_plan, build_forward_steps
+
+
+def _item(source: Path, destination: Path, title_id: str) -> RenamePlanItem:
+    return RenamePlanItem(
+        source=source,
+        destination=destination,
+        metadata=GameMetadata(title_id=title_id),
+        status=PlanStatus.READY,
+    )
+
+
+def test_batch_failure_rolls_back_earlier_completed_rename(tmp_path: Path) -> None:
+    first = tmp_path / "first.ffpfsc"
+    second = tmp_path / "second.ffpfsc"
+    occupied = tmp_path / "occupied.ffpfsc"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    occupied.write_bytes(b"do-not-overwrite")
+
+    plan = [
+        _item(first, tmp_path / "renamed-first.ffpfsc", "PPSA00001"),
+        _item(second, occupied, "PPSA00002"),
+    ]
+
+    with pytest.raises(FileExistsError):
+        apply_rename_plan(plan)
+
+    assert first.read_bytes() == b"first"
+    assert second.read_bytes() == b"second"
+    assert occupied.read_bytes() == b"do-not-overwrite"
+    assert not (tmp_path / "renamed-first.ffpfsc").exists()
+
+
+def test_forward_steps_capture_smart_folder_rename(tmp_path: Path) -> None:
+    old_folder = tmp_path / "Old"
+    old_folder.mkdir()
+    source = old_folder / "game.ffpfsc"
+    source.write_bytes(b"image")
+    target_folder = tmp_path / "PPSA00003 - Game"
+    destination = target_folder / "PPSA00003 - Game.ffpfsc"
+
+    item = RenamePlanItem(
+        source=source,
+        destination=destination,
+        metadata=GameMetadata(title_id="PPSA00003", title_name="Game"),
+        status=PlanStatus.READY,
+        source_directory=old_folder,
+        target_directory=target_folder,
+    )
+
+    steps = build_forward_steps([item])
+
+    assert [step.kind for step in steps] == ["rename_dir", "rename_file"]
+    assert steps[0].source == old_folder
+    assert steps[0].destination == target_folder
+    assert steps[1].source == target_folder / "game.ffpfsc"
+    assert steps[1].destination == destination
