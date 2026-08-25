@@ -6,10 +6,12 @@ import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 from .metadata import GameMetadata
 
 CACHE_SCHEMA_VERSION = 1
+FAILURE_SCHEMA_VERSION = 1
 FINGERPRINT_CHUNK_SIZE = 64 * 1024
 
 
@@ -21,8 +23,16 @@ class CacheLookup:
 
 
 @dataclass(frozen=True, slots=True)
+class FailureLookup:
+    error: str | None
+    hit: bool
+    updated_at: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class CacheStats:
     entries: int
+    failed_entries: int
     database_bytes: int
     oldest_updated_at: int | None
     newest_updated_at: int | None
@@ -85,12 +95,12 @@ class MetadataCache:
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=15)
         connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA synchronous=NORMAL")
         return connection
 
     def _initialize(self) -> None:
         with self._connect() as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS metadata_cache (
@@ -121,6 +131,26 @@ class MetadataCache:
                 ON metadata_cache(size, fingerprint, schema_version)
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS failure_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL,
+                    path_key TEXT NOT NULL UNIQUE,
+                    size INTEGER NOT NULL,
+                    mtime_ns INTEGER NOT NULL,
+                    error TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_failure_cache_stat
+                ON failure_cache(size, mtime_ns, schema_version)
+                """
+            )
 
     @staticmethod
     def _metadata_from_row(row: sqlite3.Row) -> GameMetadata:
@@ -132,52 +162,130 @@ class MetadataCache:
         )
 
     def lookup(self, path: Path) -> CacheLookup:
-        path = path.resolve()
-        try:
-            stat = path.stat()
-        except OSError:
-            return CacheLookup(None, False)
+        return self.lookup_many([path]).get(path.resolve(), CacheLookup(None, False))
 
-        key = _path_key(path)
+    def lookup_many(self, paths: Iterable[Path]) -> dict[Path, CacheLookup]:
+        """Resolve verified metadata cache hits with a single SQLite read.
+
+        Exact path+size+mtime hits require no file reads. Only path-changed files
+        whose size matches an existing cached image pay the lightweight sampled
+        fingerprint cost.
+        """
+        resolved: list[Path] = []
+        stats: dict[Path, os.stat_result] = {}
+        results: dict[Path, CacheLookup] = {}
+        seen: set[str] = set()
+        for value in paths:
+            path = Path(value).resolve()
+            key = _path_key(path)
+            if key in seen:
+                continue
+            seen.add(key)
+            resolved.append(path)
+            try:
+                stats[path] = path.stat()
+            except OSError:
+                results[path] = CacheLookup(None, False)
+
         with self._connect() as connection:
-            row = connection.execute(
-                """
-                SELECT * FROM metadata_cache
-                WHERE path_key = ? AND schema_version = ?
-                """,
-                (key, CACHE_SCHEMA_VERSION),
-            ).fetchone()
-
-            if (
-                row is not None
-                and row["size"] == stat.st_size
-                and row["mtime_ns"] == stat.st_mtime_ns
-            ):
-                return CacheLookup(self._metadata_from_row(row), True, "path+stat")
-
-            candidates = connection.execute(
-                """
-                SELECT * FROM metadata_cache
-                WHERE size = ? AND schema_version = ? AND fingerprint IS NOT NULL
-                """,
-                (stat.st_size, CACHE_SCHEMA_VERSION),
+            rows = connection.execute(
+                "SELECT * FROM metadata_cache WHERE schema_version = ?",
+                (CACHE_SCHEMA_VERSION,),
             ).fetchall()
 
-        if not candidates:
-            return CacheLookup(None, False)
+        by_key = {row["path_key"]: row for row in rows}
+        by_size: dict[int, list[sqlite3.Row]] = {}
+        for row in rows:
+            if row["fingerprint"]:
+                by_size.setdefault(int(row["size"]), []).append(row)
 
-        try:
-            fingerprint = quick_fingerprint(path)
-        except OSError:
-            return CacheLookup(None, False)
+        fingerprint_promotions: list[tuple[Path, GameMetadata, str]] = []
+        for path in resolved:
+            stat = stats.get(path)
+            if stat is None:
+                continue
+            row = by_key.get(_path_key(path))
+            if (
+                row is not None
+                and int(row["size"]) == stat.st_size
+                and int(row["mtime_ns"]) == stat.st_mtime_ns
+            ):
+                results[path] = CacheLookup(self._metadata_from_row(row), True, "path+stat")
+                continue
 
-        matched = next((row for row in candidates if row["fingerprint"] == fingerprint), None)
-        if matched is None:
-            return CacheLookup(None, False)
+            candidates = by_size.get(stat.st_size, [])
+            if not candidates:
+                results[path] = CacheLookup(None, False)
+                continue
+            try:
+                fingerprint = quick_fingerprint(path)
+            except OSError:
+                results[path] = CacheLookup(None, False)
+                continue
+            matched = next(
+                (candidate for candidate in candidates if candidate["fingerprint"] == fingerprint),
+                None,
+            )
+            if matched is None:
+                results[path] = CacheLookup(None, False)
+                continue
+            metadata = self._metadata_from_row(matched)
+            results[path] = CacheLookup(metadata, True, "quick-fingerprint")
+            fingerprint_promotions.append((path, metadata, fingerprint))
 
-        metadata = self._metadata_from_row(matched)
-        self.store(path, metadata, fingerprint=fingerprint)
-        return CacheLookup(metadata, True, "quick-fingerprint")
+        for path, metadata, fingerprint in fingerprint_promotions:
+            try:
+                self.store(path, metadata, fingerprint=fingerprint)
+            except OSError:
+                pass
+        return results
+
+    def lookup_failure(self, path: Path) -> FailureLookup:
+        return self.lookup_failures_many([path]).get(path.resolve(), FailureLookup(None, False))
+
+    def lookup_failures_many(self, paths: Iterable[Path]) -> dict[Path, FailureLookup]:
+        """Return cached MkPFS failures only when the exact file stat is unchanged."""
+        resolved: list[Path] = []
+        stats: dict[Path, os.stat_result] = {}
+        results: dict[Path, FailureLookup] = {}
+        seen: set[str] = set()
+        for value in paths:
+            path = Path(value).resolve()
+            key = _path_key(path)
+            if key in seen:
+                continue
+            seen.add(key)
+            resolved.append(path)
+            try:
+                stats[path] = path.stat()
+            except OSError:
+                results[path] = FailureLookup(None, False)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM failure_cache WHERE schema_version = ?",
+                (FAILURE_SCHEMA_VERSION,),
+            ).fetchall()
+        by_key = {row["path_key"]: row for row in rows}
+
+        for path in resolved:
+            stat = stats.get(path)
+            if stat is None:
+                continue
+            row = by_key.get(_path_key(path))
+            if (
+                row is not None
+                and int(row["size"]) == stat.st_size
+                and int(row["mtime_ns"]) == stat.st_mtime_ns
+            ):
+                results[path] = FailureLookup(
+                    str(row["error"]),
+                    True,
+                    int(row["updated_at"]),
+                )
+            else:
+                results[path] = FailureLookup(None, False)
+        return results
 
     def store(
         self,
@@ -197,6 +305,7 @@ class MetadataCache:
         now = int(time.time())
         key = _path_key(path)
         with self._connect() as connection:
+            connection.execute("DELETE FROM failure_cache WHERE path_key = ?", (key,))
             connection.execute(
                 """
                 INSERT INTO metadata_cache (
@@ -231,49 +340,77 @@ class MetadataCache:
                 ),
             )
 
+    def store_failure(self, path: Path, error: str) -> None:
+        path = path.resolve()
+        stat = path.stat()
+        key = _path_key(path)
+        now = int(time.time())
+        detail = str(error).strip() or "Unknown MkPFS metadata read error"
+        with self._connect() as connection:
+            connection.execute("DELETE FROM metadata_cache WHERE path_key = ?", (key,))
+            connection.execute(
+                """
+                INSERT INTO failure_cache (
+                    path, path_key, size, mtime_ns, error, schema_version, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path_key) DO UPDATE SET
+                    path = excluded.path,
+                    size = excluded.size,
+                    mtime_ns = excluded.mtime_ns,
+                    error = excluded.error,
+                    schema_version = excluded.schema_version,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    str(path),
+                    key,
+                    stat.st_size,
+                    stat.st_mtime_ns,
+                    detail,
+                    FAILURE_SCHEMA_VERSION,
+                    now,
+                ),
+            )
+
     def update_path_after_rename(self, old_path: Path, new_path: Path) -> None:
-        """Keep a cache record hot after a rename performed by this app."""
+        """Keep verified or failure cache records hot after an app rename."""
         old_key = _path_key(old_path)
         new_path = new_path.resolve()
         if not new_path.exists():
             return
         stat = new_path.stat()
         new_key = _path_key(new_path)
+        now = int(time.time())
 
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT * FROM metadata_cache WHERE path_key = ?",
-                (old_key,),
-            ).fetchone()
-            if row is None:
-                return
-
-            connection.execute("DELETE FROM metadata_cache WHERE path_key = ?", (new_key,))
-            connection.execute(
-                """
-                UPDATE metadata_cache
-                SET path = ?, path_key = ?, size = ?, mtime_ns = ?, updated_at = ?
-                WHERE path_key = ?
-                """,
-                (
-                    str(new_path),
-                    new_key,
-                    stat.st_size,
-                    stat.st_mtime_ns,
-                    int(time.time()),
-                    old_key,
-                ),
-            )
+            for table in ("metadata_cache", "failure_cache"):
+                row = connection.execute(
+                    f"SELECT path_key FROM {table} WHERE path_key = ?",
+                    (old_key,),
+                ).fetchone()
+                if row is None:
+                    continue
+                connection.execute(f"DELETE FROM {table} WHERE path_key = ?", (new_key,))
+                connection.execute(
+                    f"""
+                    UPDATE {table}
+                    SET path = ?, path_key = ?, size = ?, mtime_ns = ?, updated_at = ?
+                    WHERE path_key = ?
+                    """,
+                    (str(new_path), new_key, stat.st_size, stat.st_mtime_ns, now, old_key),
+                )
 
     def remove(self, path: Path) -> None:
-        """Remove one cached record after the user deletes/moves a file away."""
+        """Remove cached verified/failure records after a file moves away."""
         key = _path_key(path)
         with self._connect() as connection:
             connection.execute("DELETE FROM metadata_cache WHERE path_key = ?", (key,))
+            connection.execute("DELETE FROM failure_cache WHERE path_key = ?", (key,))
 
     def clear(self) -> None:
         with self._connect() as connection:
             connection.execute("DELETE FROM metadata_cache")
+            connection.execute("DELETE FROM failure_cache")
 
     def entry_count(self) -> int:
         with self._connect() as connection:
@@ -283,18 +420,43 @@ class MetadataCache:
             ).fetchone()
         return int(row["count"] if row is not None else 0)
 
-    def stats(self) -> CacheStats:
+    def failure_count(self) -> int:
         with self._connect() as connection:
             row = connection.execute(
+                "SELECT COUNT(*) AS count FROM failure_cache WHERE schema_version = ?",
+                (FAILURE_SCHEMA_VERSION,),
+            ).fetchone()
+        return int(row["count"] if row is not None else 0)
+
+    def stats(self) -> CacheStats:
+        with self._connect() as connection:
+            metadata = connection.execute(
                 """
-                SELECT COUNT(*) AS count,
-                       MIN(updated_at) AS oldest,
-                       MAX(updated_at) AS newest
-                FROM metadata_cache
-                WHERE schema_version = ?
+                SELECT COUNT(*) AS count, MIN(updated_at) AS oldest, MAX(updated_at) AS newest
+                FROM metadata_cache WHERE schema_version = ?
                 """,
                 (CACHE_SCHEMA_VERSION,),
             ).fetchone()
+            failures = connection.execute(
+                """
+                SELECT COUNT(*) AS count, MIN(updated_at) AS oldest, MAX(updated_at) AS newest
+                FROM failure_cache WHERE schema_version = ?
+                """,
+                (FAILURE_SCHEMA_VERSION,),
+            ).fetchone()
+
+        timestamps = [
+            value
+            for value in (
+                metadata["oldest"] if metadata is not None else None,
+                metadata["newest"] if metadata is not None else None,
+                failures["oldest"] if failures is not None else None,
+                failures["newest"] if failures is not None else None,
+            )
+            if value is not None
+        ]
+        oldest = min(timestamps) if timestamps else None
+        newest = max(timestamps) if timestamps else None
 
         database_bytes = 0
         for candidate in (
@@ -308,34 +470,27 @@ class MetadataCache:
                 pass
 
         return CacheStats(
-            entries=int(row["count"] if row is not None else 0),
+            entries=int(metadata["count"] if metadata is not None else 0),
+            failed_entries=int(failures["count"] if failures is not None else 0),
             database_bytes=database_bytes,
-            oldest_updated_at=(
-                int(row["oldest"])
-                if row is not None and row["oldest"] is not None
-                else None
-            ),
-            newest_updated_at=(
-                int(row["newest"])
-                if row is not None and row["newest"] is not None
-                else None
-            ),
+            oldest_updated_at=int(oldest) if oldest is not None else None,
+            newest_updated_at=int(newest) if newest is not None else None,
         )
 
     def prune_missing(self) -> int:
-        """Remove cache entries whose recorded file path no longer exists."""
+        """Remove verified/failure entries whose recorded path no longer exists."""
+        removed = 0
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT path_key, path FROM metadata_cache WHERE schema_version = ?",
-                (CACHE_SCHEMA_VERSION,),
-            ).fetchall()
-            missing = [row["path_key"] for row in rows if not Path(row["path"]).exists()]
-            if missing:
-                connection.executemany(
-                    "DELETE FROM metadata_cache WHERE path_key = ?",
-                    [(key,) for key in missing],
-                )
-        return len(missing)
+            for table in ("metadata_cache", "failure_cache"):
+                rows = connection.execute(f"SELECT path_key, path FROM {table}").fetchall()
+                missing = [row["path_key"] for row in rows if not Path(row["path"]).exists()]
+                if missing:
+                    connection.executemany(
+                        f"DELETE FROM {table} WHERE path_key = ?",
+                        [(key,) for key in missing],
+                    )
+                    removed += len(missing)
+        return removed
 
     def vacuum(self) -> None:
         """Compact the SQLite file after large cache cleanup operations."""
