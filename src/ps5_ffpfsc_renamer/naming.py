@@ -35,10 +35,11 @@ class NamingOptions:
     # folder_handling is left at file_only it maps to always_new.
     create_folder: bool = False
     folder_handling: str = FOLDER_FILE_ONLY
-    # Optional selected library root. Smart mode uses it to guarantee that the
-    # root itself is never renamed and to distinguish loose files from files
-    # already living in dedicated game folders.
+    # Backward-compatible single selected root.
     library_root: str | None = None
+    # Current UI can scan multiple independent roots. Smart mode resolves the
+    # correct protected root separately for every source path.
+    library_roots: tuple[str, ...] = ()
     separator: str = " - "
     component_order: tuple[str, ...] = COMPONENTS
 
