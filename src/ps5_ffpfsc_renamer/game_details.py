@@ -54,11 +54,18 @@ def _identity(image: Path) -> tuple[int, int]:
     return int(stat.st_size), int(stat.st_mtime_ns)
 
 
+def details_cache_key_for_identity(path: Path, size: int, mtime_ns: int) -> str:
+    resolved = path.resolve(strict=False)
+    payload = f"{str(resolved).casefold()}\0{int(size)}\0{int(mtime_ns)}".encode(
+        "utf-8", errors="surrogatepass"
+    )
+    return hashlib.sha256(payload).hexdigest()
+
+
 def details_cache_key(image: Path) -> str:
     resolved = image.resolve(strict=False)
     size, mtime_ns = _identity(resolved)
-    payload = f"{str(resolved).casefold()}\0{size}\0{mtime_ns}".encode("utf-8", errors="surrogatepass")
-    return hashlib.sha256(payload).hexdigest()
+    return details_cache_key_for_identity(resolved, size, mtime_ns)
 
 
 def _cache_dir(image: Path, cache_root: Path | None = None) -> Path:
@@ -216,9 +223,6 @@ def load_game_details(
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-details-") as temp_name:
         output_dir = Path(temp_name) / "extract"
 
-        # MkPFS supports repeated --only selectors. Some unusual images may
-        # reject the combined selector set, so retry param.json alone before
-        # declaring the details view unavailable.
         try:
             _run_unpack(
                 image,
@@ -265,6 +269,64 @@ def load_game_details(
             icon_path=cached_icon,
             cache_hit=False,
         )
+
+
+def migrate_details_cache(
+    old_path: Path,
+    new_path: Path,
+    cache_root: Path | None = None,
+) -> bool:
+    """Move an existing details cache entry after a filesystem rename.
+
+    The FFPFSC payload is not read. Size and mtime are taken from the already
+    renamed destination and used to derive both the old and new cache keys.
+    """
+    root = cache_root or default_details_cache_root()
+    try:
+        size, mtime_ns = _identity(new_path)
+    except OSError:
+        return False
+
+    old_key = details_cache_key_for_identity(old_path, size, mtime_ns)
+    new_key = details_cache_key_for_identity(new_path, size, mtime_ns)
+    if old_key == new_key:
+        return True
+
+    source_folder = root / old_key
+    target_folder = root / new_key
+    if not source_folder.is_dir():
+        return False
+
+    if target_folder.exists():
+        try:
+            shutil.rmtree(source_folder)
+        except OSError:
+            pass
+        return True
+
+    manifest_path = source_folder / "manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(manifest, dict) or manifest.get("schema") != _CACHE_SCHEMA:
+        return False
+
+    manifest["source"] = str(new_path.resolve(strict=False))
+    manifest["size"] = size
+    manifest["mtime_ns"] = mtime_ns
+    temporary = source_folder / "manifest.json.tmp"
+    try:
+        temporary.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(manifest_path)
+        source_folder.replace(target_folder)
+    except OSError:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False
+    return True
 
 
 def _directory_size(folder: Path) -> int:
