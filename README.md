@@ -2,7 +2,7 @@
 
 Windows utility for scanning PS5 `.ffpfsc` libraries, reading internal metadata, previewing safe output names and renaming files/folders **without rewriting or recompressing the FFPFSC payload**.
 
-> **Current release: v0.4.0 — Smart Library**
+> **Current release: v0.4.1 — Version Sync Hotfix**
 
 ## Preview
 
