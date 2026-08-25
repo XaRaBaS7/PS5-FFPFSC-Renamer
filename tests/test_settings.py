@@ -62,6 +62,12 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
         mkpfs_path=str(mkpfs),
         sort_column="size",
         sort_descending=True,
+        autoscan_on_start=False,
+        autoscan_on_browse=False,
+        autoscan_on_add_folder=False,
+        remember_window_geometry=False,
+        show_relative_paths=False,
+        auto_prune_cache=True,
     )
 
     save_settings(expected, path)
@@ -76,6 +82,12 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
     assert loaded.mkpfs_path == str(mkpfs.resolve())
     assert loaded.sort_column == "size"
     assert loaded.sort_descending is True
+    assert loaded.autoscan_on_start is False
+    assert loaded.autoscan_on_browse is False
+    assert loaded.autoscan_on_add_folder is False
+    assert loaded.remember_window_geometry is False
+    assert loaded.show_relative_paths is False
+    assert loaded.auto_prune_cache is True
 
 
 def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
@@ -88,6 +100,7 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
             mkpfs_path=str(mkpfs),
             sort_column="title",
             sort_descending=True,
+            autoscan_on_start=False,
         ),
         path,
     )
@@ -102,6 +115,7 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     assert loaded.mkpfs_path == str(mkpfs.resolve())
     assert loaded.sort_column == "title"
     assert loaded.sort_descending is True
+    assert loaded.autoscan_on_start is False
 
 
 def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
@@ -120,6 +134,12 @@ def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
     assert loaded.mkpfs_path is None
     assert loaded.sort_column == "file"
     assert loaded.sort_descending is False
+    assert loaded.autoscan_on_start is True
+    assert loaded.autoscan_on_browse is True
+    assert loaded.autoscan_on_add_folder is True
+    assert loaded.remember_window_geometry is True
+    assert loaded.show_relative_paths is True
+    assert loaded.auto_prune_cache is False
 
 
 def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
@@ -127,9 +147,15 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     save_settings(AppSettings(), path)
     data = json.loads(path.read_text(encoding="utf-8"))
 
-    assert data["schema_version"] == 4
+    assert data["schema_version"] == 5
     assert "worker" in data
     assert "component_order" in data
     assert "mkpfs_path" in data
     assert "sort_column" in data
     assert "sort_descending" in data
+    assert "autoscan_on_start" in data
+    assert "autoscan_on_browse" in data
+    assert "autoscan_on_add_folder" in data
+    assert "remember_window_geometry" in data
+    assert "show_relative_paths" in data
+    assert "auto_prune_cache" in data
