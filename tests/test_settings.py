@@ -60,6 +60,8 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
         result_filter="DUPLICATES",
         window_geometry="1440x900+10+20",
         mkpfs_path=str(mkpfs),
+        sort_column="size",
+        sort_descending=True,
     )
 
     save_settings(expected, path)
@@ -72,12 +74,23 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
     assert loaded.result_filter == "DUPLICATES"
     assert loaded.window_geometry == "1440x900+10+20"
     assert loaded.mkpfs_path == str(mkpfs.resolve())
+    assert loaded.sort_column == "size"
+    assert loaded.sort_descending is True
 
 
 def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     path = tmp_path / "settings.json"
     mkpfs = tmp_path / "mkpfs.exe"
-    save_settings(AppSettings(worker="2", include_title=True, mkpfs_path=str(mkpfs)), path)
+    save_settings(
+        AppSettings(
+            worker="2",
+            include_title=True,
+            mkpfs_path=str(mkpfs),
+            sort_column="title",
+            sort_descending=True,
+        ),
+        path,
+    )
     root = tmp_path / "new-root"
 
     save_library_roots([root], path)
@@ -87,6 +100,8 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     assert loaded.include_title is True
     assert loaded.library_roots == (str(root.resolve()),)
     assert loaded.mkpfs_path == str(mkpfs.resolve())
+    assert loaded.sort_column == "title"
+    assert loaded.sort_descending is True
 
 
 def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
@@ -103,6 +118,8 @@ def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
     assert loaded.recursive is True
     assert loaded.folder_mode == "Smart (recommended)"
     assert loaded.mkpfs_path is None
+    assert loaded.sort_column == "file"
+    assert loaded.sort_descending is False
 
 
 def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
@@ -110,7 +127,9 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     save_settings(AppSettings(), path)
     data = json.loads(path.read_text(encoding="utf-8"))
 
-    assert data["schema_version"] == 3
+    assert data["schema_version"] == 4
     assert "worker" in data
     assert "component_order" in data
     assert "mkpfs_path" in data
+    assert "sort_column" in data
+    assert "sort_descending" in data
