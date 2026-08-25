@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .diagnostics import classify_reader_error
+from .ffpfsc_reader import MetadataReadCancelled
 from .game_details import GameDetails, load_game_details
 from .gui_v12 import RenamerApp as RenamerAppV12
 from .gui_v9 import _Record
@@ -17,6 +18,8 @@ from .theme import COLORS
 
 class RenamerApp(RenamerAppV12):
     """v0.4 game-details inspector with cached selective icon/JSON reads."""
+
+    DETAILS_DEBOUNCE_MS = 280
 
     def __init__(self) -> None:
         self._details_body: ttk.Frame | None = None
@@ -29,6 +32,8 @@ class RenamerApp(RenamerAppV12):
         self._details_record: _Record | None = None
         self._details_visible = False
         self._details_generation = 0
+        self._details_after_id: str | None = None
+        self._details_cancel_event: threading.Event | None = None
         super().__init__()
         self.tree.bind("<<TreeviewSelect>>", self._on_details_selection, add="+")
 
@@ -231,9 +236,21 @@ class RenamerApp(RenamerAppV12):
             self._reset_details_icon("ICON0\nunsupported image")
 
     # -------------------------------------------------------- selection
+    def _cancel_pending_details(self) -> None:
+        if self._details_after_id is not None:
+            try:
+                self.after_cancel(self._details_after_id)
+            except tk.TclError:
+                pass
+            self._details_after_id = None
+        if self._details_cancel_event is not None:
+            self._details_cancel_event.set()
+            self._details_cancel_event = None
+
     def _on_details_selection(self, _event=None) -> None:
         rows = self.tree.selection()
         if len(rows) != 1:
+            self._cancel_pending_details()
             self._details_record = None
             self._details_generation += 1
             if self._details_status_var is not None:
@@ -248,6 +265,7 @@ class RenamerApp(RenamerAppV12):
             self._activate_details_record(record)
 
     def _activate_details_record(self, record: _Record, *, force: bool = False) -> None:
+        self._cancel_pending_details()
         self._details_record = record
         self._details_generation += 1
         generation = self._details_generation
@@ -270,22 +288,47 @@ class RenamerApp(RenamerAppV12):
             source = "Verified scan metadata / cache"
         self._details_vars["source"].set(source)
         self._details_vars["path"].set(str(view.source))
+        self._set_details_json("Waiting to load sce_sys/param.json...")
+        self._reset_details_icon("Waiting to load\nicon0.png...")
+        if self._details_status_var is not None:
+            self._details_status_var.set(f"Selected {view.source.name} — preparing details...")
+
+        delay = 0 if force else self.DETAILS_DEBOUNCE_MS
+        self._details_after_id = self.after(
+            delay,
+            lambda: self._start_details_load(view.source, generation, force),
+        )
+
+    def _start_details_load(self, path: Path, generation: int, force: bool) -> None:
+        self._details_after_id = None
+        if generation != self._details_generation:
+            return
+        cancel_event = threading.Event()
+        self._details_cancel_event = cancel_event
         self._set_details_json("Loading sce_sys/param.json...")
         self._reset_details_icon("Loading\nicon0.png...")
         if self._details_status_var is not None:
-            self._details_status_var.set(f"Loading {view.source.name}...")
+            self._details_status_var.set(f"Loading {path.name}...")
 
         thread = threading.Thread(
             target=self._details_worker,
-            args=(view.source, generation, force),
+            args=(path, generation, force, cancel_event),
             daemon=True,
             name="ffpfsc-details",
         )
         thread.start()
 
-    def _details_worker(self, path: Path, generation: int, force: bool) -> None:
+    def _details_worker(
+        self,
+        path: Path,
+        generation: int,
+        force: bool,
+        cancel_event: threading.Event,
+    ) -> None:
         try:
-            details = load_game_details(path, force=force)
+            details = load_game_details(path, force=force, cancel_event=cancel_event)
+        except MetadataReadCancelled:
+            return
         except Exception as exc:
             detail = str(exc)
             try:
@@ -301,6 +344,7 @@ class RenamerApp(RenamerAppV12):
     def _details_loaded(self, path: Path, generation: int, details: GameDetails) -> None:
         if generation != self._details_generation:
             return
+        self._details_cancel_event = None
         record = self._details_record
         if record is None or record.view.source.resolve(strict=False) != path.resolve(strict=False):
             return
@@ -327,10 +371,13 @@ class RenamerApp(RenamerAppV12):
     def _details_failed(self, path: Path, generation: int, detail: str) -> None:
         if generation != self._details_generation:
             return
+        self._details_cancel_event = None
         code, friendly = classify_reader_error(detail)
         self._details_vars["master_version"].set("-")
         self._details_vars["source"].set(f"Details unavailable ({code})")
-        self._set_details_json(f"Unable to read sce_sys/param.json\n\n{friendly}\n\nTechnical detail:\n{detail}")
+        self._set_details_json(
+            f"Unable to read sce_sys/param.json\n\n{friendly}\n\nTechnical detail:\n{detail}"
+        )
         self._reset_details_icon("ICON0\nunavailable")
         if self._details_status_var is not None:
             self._details_status_var.set(friendly)
