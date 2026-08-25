@@ -2,6 +2,18 @@
 
 All notable changes to PS5 FFPFSC Renamer are documented here.
 
+## [0.4.1] - 2026-08-26
+
+### Fixed
+
+- Synchronized the runtime `ps5_ffpfsc_renamer.__version__` value with the packaged project version.
+- The Windows About dialog now reports the same release version as the ZIP/tag instead of the stale `0.4.0.dev1` development value.
+- Added an automated regression test that fails CI whenever `__version__` and `pyproject.toml` diverge.
+
+### Unchanged
+
+- No changes to FFPFSC parsing, MkPFS integration, rename planning, pre-flight checks, post-rename verification, Smart Folder behavior, rollback, Undo, Live Watch, Game Details or Naming Profiles.
+
 ## [0.4.0] - 2026-08-25
 
 ### Smart Library
