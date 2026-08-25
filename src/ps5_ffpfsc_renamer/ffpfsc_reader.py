@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .cache import MetadataCache
 from .metadata import GameMetadata, metadata_from_param_json
+from .process_utils import hidden_subprocess_kwargs
 
 
 class MetadataReadError(RuntimeError):
@@ -186,6 +187,7 @@ def read_metadata(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                **hidden_subprocess_kwargs(),
             )
         except OSError as exc:
             raise MetadataReadError(f"Unable to run MkPFS: {exc}") from exc
