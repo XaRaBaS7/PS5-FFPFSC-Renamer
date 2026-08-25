@@ -22,7 +22,6 @@ All notable changes to PS5 FFPFSC Renamer are documented here.
 
 ### Changed
 
-- Removed the personal `Created by XaRaBaS` footer signature from the README; author attribution remains inside the application UI where the clickable repository link belongs.
 - Moved the source-development launcher from root `RUN.bat` to `tools\dev\RUN_DEV.bat` so the repository root better reflects the packaged end-user experience.
 - README now clearly distinguishes development files from the standalone Windows release package.
 
