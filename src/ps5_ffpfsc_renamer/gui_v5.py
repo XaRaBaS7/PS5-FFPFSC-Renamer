@@ -5,10 +5,11 @@ import subprocess
 import threading
 from pathlib import Path
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 
 from send2trash import send2trash
 
+from .diagnostics import diagnose_image
 from .ffpfsc_reader import MetadataReadError, read_metadata
 from .gui_v4 import RenamerApp as RenamerAppV4
 from .rename_plan import PlanStatus, RenamePlanItem
@@ -92,6 +93,10 @@ class RenamerApp(RenamerAppV4):
             label="Open folder",
             command=lambda path=source: self._open_folder(path),
         )
+        menu.add_command(
+            label="Run diagnostics",
+            command=lambda path=source: self._run_diagnostics(path),
+        )
         menu.add_separator()
         menu.add_command(
             label="Copy full path",
@@ -153,6 +158,86 @@ class RenamerApp(RenamerAppV4):
         self.clipboard_append(text)
         self.update_idletasks()
         self.status_var.set("Copied to clipboard")
+
+    def _run_diagnostics(self, source: Path) -> None:
+        if self._scan_active:
+            messagebox.showinfo(
+                "Diagnostics",
+                "Wait for the current library scan to finish first.",
+                parent=self,
+            )
+            return
+
+        self.status_var.set(f"Running diagnostics: {source.name}...")
+        root_text = self.folder_var.get().strip()
+        library_root = Path(root_text) if root_text else None
+
+        def worker() -> None:
+            try:
+                report = diagnose_image(source, library_root=library_root)
+            except Exception as exc:
+                report = f"FFPFSC DIAGNOSTICS\n\nUnexpected diagnostic error:\n{exc}"
+
+            self.after(0, lambda text=report: self._show_diagnostics_report(source, text))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_diagnostics_report(self, source: Path, report: str) -> None:
+        self.status_var.set(f"Diagnostics complete: {source.name}")
+
+        window = tk.Toplevel(self)
+        window.title(f"Diagnostics — {source.name}")
+        window.geometry("820x560")
+        window.minsize(650, 420)
+        window.configure(bg=COLORS["bg"])
+        window.transient(self)
+
+        body = tk.Frame(window, bg=COLORS["bg"])
+        body.pack(fill="both", expand=True, padx=14, pady=14)
+
+        text_frame = tk.Frame(
+            body,
+            bg=COLORS["surface"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
+        text_frame.pack(fill="both", expand=True)
+
+        scroll = ttk.Scrollbar(text_frame, orient="vertical")
+        scroll.pack(side="right", fill="y")
+        text = tk.Text(
+            text_frame,
+            wrap="word",
+            bg=COLORS["surface"],
+            fg=COLORS["text_soft"],
+            insertbackground=COLORS["text"],
+            selectbackground=COLORS["accent"],
+            selectforeground="#ffffff",
+            relief="flat",
+            font=("Consolas", 9),
+            padx=12,
+            pady=12,
+            yscrollcommand=scroll.set,
+        )
+        text.pack(side="left", fill="both", expand=True)
+        scroll.configure(command=text.yview)
+        text.insert("1.0", report)
+        text.configure(state="disabled")
+
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x", pady=(10, 0))
+        ttk.Button(
+            buttons,
+            text="Copy report",
+            style="Secondary.TButton",
+            command=lambda: self._copy_text(report),
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Close",
+            style="Primary.TButton",
+            command=window.destroy,
+        ).pack(side="right")
 
     def _show_details(self, item: RenamePlanItem) -> None:
         metadata = item.metadata
