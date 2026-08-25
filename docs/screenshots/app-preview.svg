@@ -1,81 +1,118 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040">
-  <rect width="1440" height="1040" rx="16" fill="#0b0911"/>
-  <rect width="220" height="1040" fill="#100d18"/>
-  <g font-family="Segoe UI,Arial">
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000">
+  <rect width="1440" height="1000" rx="16" fill="#0b0911"/>
+  <rect width="220" height="1000" fill="#100d18"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
     <text x="24" y="58" fill="#a875d6" font-size="24" font-weight="700">FFPFSC</text>
     <text x="24" y="84" fill="#f2eff8" font-size="17" font-weight="700">RENAMER</text>
-    <text x="24" y="108" fill="#746c82" font-size="12">v0.4.0.dev1</text>
-    <text x="24" y="160" fill="#746c82" font-size="12">WORKSPACE</text>
-    <rect x="0" y="174" width="220" height="48" fill="#241632"/>
-    <text x="28" y="204" fill="#c08ce8" font-size="14" font-weight="700">▣  Library</text>
-    <text x="24" y="268" fill="#746c82" font-size="12">ENGINE</text>
-    <rect x="18" y="284" width="184" height="72" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="316" fill="#f2eff8" font-size="14" font-weight="700">MkPFS</text>
-    <circle cx="38" cy="338" r="4" fill="#57c7a5"/><text x="50" y="343" fill="#57c7a5" font-size="12">Detected</text>
-    <text x="24" y="404" fill="#746c82" font-size="12">CACHE</text>
-    <rect x="18" y="420" width="184" height="112" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="452" fill="#d7d1e1" font-size="13" font-weight="700">Metadata DB</text>
-    <text x="34" y="486" fill="#a875d6" font-size="24" font-weight="700">127</text>
-    <text x="34" y="508" fill="#9f97ad" font-size="11">cached file records</text>
+    <text x="24" y="108" fill="#746c82" font-size="12">v0.4.0</text>
 
-    <text x="242" y="60" fill="#f2eff8" font-size="32" font-weight="700">Library Renamer</text>
-    <text x="242" y="88" fill="#9f97ad" font-size="13">Smart library watching, cached metadata, game details and safe rename plans.</text>
+    <text x="24" y="158" fill="#746c82" font-size="11">WORKSPACE</text>
+    <rect x="0" y="172" width="220" height="48" fill="#241632"/>
+    <text x="28" y="202" fill="#c08ce8" font-size="14" font-weight="700">▣  Library</text>
 
-    <rect x="242" y="118" width="270" height="88" fill="#1c1728" stroke="#a875d6" stroke-width="2"/><text x="260" y="154" fill="#f2eff8" font-size="27" font-weight="700">126</text><text x="260" y="182" fill="#9f97ad" font-size="11">FILES FOUND</text>
-    <rect x="524" y="118" width="270" height="88" fill="#1c1728" stroke="#d8ae63" stroke-width="2"/><text x="542" y="154" fill="#f2eff8" font-size="27" font-weight="700">124</text><text x="542" y="182" fill="#9f97ad" font-size="11">FROM CACHE</text>
-    <rect x="806" y="118" width="270" height="88" fill="#1c1728" stroke="#57c7a5" stroke-width="2"/><text x="824" y="154" fill="#f2eff8" font-size="27" font-weight="700">121</text><text x="824" y="182" fill="#9f97ad" font-size="11">READY</text>
-    <rect x="1088" y="118" width="270" height="88" fill="#1c1728" stroke="#df6877" stroke-width="2"/><text x="1106" y="154" fill="#f2eff8" font-size="27" font-weight="700">5</text><text x="1106" y="182" fill="#9f97ad" font-size="11">BLOCKED / ERRORS</text>
+    <text x="24" y="264" fill="#746c82" font-size="11">ENGINE</text>
+    <rect x="18" y="280" width="184" height="70" rx="5" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="310" fill="#f2eff8" font-size="14" font-weight="700">MkPFS</text>
+    <circle cx="38" cy="332" r="4" fill="#57c7a5"/>
+    <text x="50" y="337" fill="#57c7a5" font-size="12">Detected • silent</text>
 
-    <rect x="242" y="220" width="500" height="204" rx="4" fill="#1c1728"/>
-    <text x="260" y="250" fill="#f2eff8" font-size="16" font-weight="700">FFPFSC library</text>
-    <text x="260" y="274" fill="#9f97ad" font-size="12">Saved roots can auto-scan and optionally watch for changes.</text>
-    <rect x="260" y="294" width="270" height="38" fill="#251e34" stroke="#342a48"/><text x="272" y="318" fill="#d7d1e1" font-family="Consolas" font-size="12">G:\PS5\FFPFSC</text>
-    <rect x="540" y="294" width="88" height="38" fill="#251e34" stroke="#a875d6"/><text x="558" y="318" fill="#f2eff8" font-size="12">Browse</text>
-    <rect x="638" y="294" width="92" height="38" fill="#251e34" stroke="#a875d6"/><text x="651" y="318" fill="#f2eff8" font-size="12">+ Add folder</text>
-    <rect x="260" y="350" width="92" height="34" rx="3" fill="#251e34" stroke="#342a48"/><text x="278" y="372" fill="#d7d1e1" font-size="12">Options</text>
-    <rect x="610" y="344" width="120" height="42" rx="3" fill="#a875d6"/><text x="632" y="370" fill="white" font-size="13" font-weight="700">Scan now  F5</text>
-    <rect x="260" y="392" width="118" height="24" rx="3" fill="#10271f" stroke="#57c7a5"/><text x="273" y="409" fill="#57c7a5" font-size="11" font-weight="700">Live watch: ON</text>
-    <text x="390" y="409" fill="#9f97ad" font-size="11">Checks metadata every 30s</text>
+    <text x="24" y="394" fill="#746c82" font-size="11">CACHE</text>
+    <rect x="18" y="410" width="184" height="112" rx="5" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="442" fill="#d7d1e1" font-size="13" font-weight="700">Metadata DB</text>
+    <text x="34" y="478" fill="#a875d6" font-size="25" font-weight="700">127</text>
+    <text x="34" y="502" fill="#9f97ad" font-size="11">cached records</text>
 
-    <rect x="754" y="220" width="604" height="204" rx="4" fill="#1c1728"/>
-    <text x="772" y="250" fill="#f2eff8" font-size="16" font-weight="700">Filename Builder</text>
-    <text x="772" y="274" fill="#9f97ad" font-size="12">Build the output name without rescanning files.</text>
-    <rect x="1244" y="232" width="96" height="32" rx="3" fill="#251e34" stroke="#a875d6"/><text x="1264" y="253" fill="#d7d1e1" font-size="12">Profiles...</text>
-    <rect x="772" y="292" width="220" height="34" fill="#251e34" stroke="#342a48"/><text x="784" y="314" fill="#d7d1e1" font-size="12">Custom</text>
-    <rect x="1010" y="292" width="330" height="34" fill="#251e34" stroke="#342a48"/><text x="1022" y="314" fill="#d7d1e1" font-size="12">Smart (recommended)</text>
-    <rect x="772" y="350" width="164" height="40" fill="#251e34" stroke="#342a48"/><text x="786" y="375" fill="#f2eff8" font-size="12">☑ PPSA / Title ID</text>
-    <rect x="946" y="350" width="154" height="40" fill="#251e34" stroke="#342a48"/><text x="962" y="375" fill="#f2eff8" font-size="12">☑ Game title</text>
-    <rect x="1110" y="350" width="130" height="40" fill="#251e34" stroke="#342a48"/><text x="1126" y="375" fill="#f2eff8" font-size="12">☑ Version</text>
-    <text x="772" y="412" fill="#9f97ad" font-size="11">Profile: Full archive • separator “ - ” • live preview enabled</text>
+    <rect x="18" y="546" width="184" height="82" rx="5" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="576" fill="#d7d1e1" font-size="12" font-weight="700">Safety</text>
+    <text x="34" y="600" fill="#57c7a5" font-size="11">✓ Pre-flight</text>
+    <text x="34" y="618" fill="#57c7a5" font-size="11">✓ Undo + verification</text>
 
-    <rect x="242" y="438" width="1116" height="96" rx="4" fill="#1c1728"/>
-    <text x="260" y="466" fill="#f2eff8" font-size="15" font-weight="700">Analysis</text>
-    <text x="1250" y="466" fill="#9f97ad" font-size="12">126/126 • 100%</text>
-    <text x="260" y="488" fill="#9f97ad" font-size="11">Overall scan</text>
-    <rect x="260" y="498" width="1078" height="10" rx="5" fill="#251e34"/><rect x="260" y="498" width="1078" height="10" rx="5" fill="#a875d6"/>
-    <text x="260" y="526" fill="#9f97ad" font-size="11">Current activity</text><text x="1280" y="526" fill="#57c7a5" font-size="11">Complete</text>
+    <text x="242" y="58" fill="#f2eff8" font-size="31" font-weight="700">Library Renamer</text>
+    <text x="242" y="86" fill="#9f97ad" font-size="13">Smart library, cached PS5 metadata, safe rename plans and on-demand game details.</text>
 
-    <rect x="242" y="548" width="1116" height="156" fill="#15111f" stroke="#342a48"/>
-    <rect x="242" y="548" width="1116" height="36" fill="#251e34"/>
-    <g fill="#f2eff8" font-size="12" font-weight="700"><text x="270" y="572">Current file</text><text x="560" y="572">Title ID</text><text x="690" y="572">Title</text><text x="940" y="572">Version</text><text x="1048" y="572">Size</text><text x="1140" y="572">Status</text></g>
-    <rect x="246" y="588" width="1108" height="34" fill="#241632"/>
-    <g font-size="12"><text x="260" y="610" fill="#f2eff8">Returnal\PPSA01285.ffpfsc</text><text x="560" y="610" fill="#f2eff8">PPSA01285</text><text x="690" y="610" fill="#f2eff8">Returnal</text><text x="940" y="610" fill="#f2eff8">01.000.000</text><text x="1048" y="610" fill="#f2eff8">56.3 GB</text><text x="1140" y="610" fill="#57c7a5">READY</text>
-    <text x="260" y="646" fill="#57c7a5">A Plague Tale Requiem\PPSA05366.ffpfsc</text><text x="560" y="646" fill="#57c7a5">PPSA05366</text><text x="690" y="646" fill="#57c7a5">A Plague Tale: Requiem</text><text x="940" y="646" fill="#57c7a5">01.005.000</text><text x="1048" y="646" fill="#57c7a5">48.6 GB</text><text x="1140" y="646" fill="#57c7a5">READY</text>
-    <text x="260" y="680" fill="#57c7a5">Atomic Heart\PPSA10695.ffpfsc</text><text x="560" y="680" fill="#57c7a5">PPSA10695</text><text x="690" y="680" fill="#57c7a5">Atomic Heart</text><text x="940" y="680" fill="#57c7a5">01.011.000</text><text x="1048" y="680" fill="#57c7a5">48.6 GB</text><text x="1140" y="680" fill="#57c7a5">READY</text></g>
+    <rect x="242" y="112" width="270" height="84" fill="#1c1728" stroke="#a875d6" stroke-width="2"/>
+    <text x="260" y="147" fill="#f2eff8" font-size="27" font-weight="700">126</text>
+    <text x="260" y="176" fill="#9f97ad" font-size="11">FILES FOUND</text>
+    <rect x="524" y="112" width="270" height="84" fill="#1c1728" stroke="#d8ae63" stroke-width="2"/>
+    <text x="542" y="147" fill="#f2eff8" font-size="27" font-weight="700">124</text>
+    <text x="542" y="176" fill="#9f97ad" font-size="11">FROM CACHE</text>
+    <rect x="806" y="112" width="270" height="84" fill="#1c1728" stroke="#57c7a5" stroke-width="2"/>
+    <text x="824" y="147" fill="#f2eff8" font-size="27" font-weight="700">121</text>
+    <text x="824" y="176" fill="#9f97ad" font-size="11">READY</text>
+    <rect x="1088" y="112" width="270" height="84" fill="#1c1728" stroke="#df6877" stroke-width="2"/>
+    <text x="1106" y="147" fill="#f2eff8" font-size="27" font-weight="700">5</text>
+    <text x="1106" y="176" fill="#9f97ad" font-size="11">BLOCKED / ERRORS</text>
 
-    <rect x="242" y="718" width="1116" height="244" rx="4" fill="#1c1728"/>
-    <text x="260" y="746" fill="#f2eff8" font-size="15" font-weight="700">Game details</text>
-    <text x="360" y="746" fill="#57c7a5" font-size="12">Loaded from details cache • icon0.png</text>
-    <rect x="260" y="762" width="110" height="28" rx="4" fill="#a875d6"/><text x="286" y="781" fill="white" font-size="12" font-weight="700">Details</text>
-    <rect x="374" y="762" width="110" height="28" rx="4" fill="#251e34"/><text x="394" y="781" fill="#d7d1e1" font-size="12">param.json</text>
-    <rect x="260" y="804" width="150" height="138" rx="5" fill="#251e34" stroke="#342a48"/>
-    <rect x="280" y="820" width="110" height="104" rx="8" fill="#0e2437"/><circle cx="335" cy="872" r="36" fill="#3d7f9f"/><circle cx="335" cy="872" r="17" fill="#0b0911"/><text x="304" y="936" fill="#9f97ad" font-size="10">icon0.png</text>
-    <g font-size="12"><text x="438" y="820" fill="#9f97ad">Title</text><text x="570" y="820" fill="#f2eff8" font-weight="700">Returnal</text><text x="438" y="846" fill="#9f97ad">Title ID / PPSA</text><text x="570" y="846" fill="#d7d1e1">PPSA01285</text><text x="438" y="872" fill="#9f97ad">Content version</text><text x="570" y="872" fill="#d7d1e1">01.000.000</text><text x="438" y="898" fill="#9f97ad">Master version</text><text x="570" y="898" fill="#d7d1e1">01.000.000</text><text x="438" y="924" fill="#9f97ad">Details source</text><text x="570" y="924" fill="#57c7a5">Details cache</text></g>
-    <rect x="1018" y="820" width="110" height="34" fill="#251e34" stroke="#342a48"/><text x="1033" y="842" fill="#d7d1e1" font-size="11">Open folder</text>
-    <rect x="1138" y="820" width="118" height="34" fill="#251e34" stroke="#342a48"/><text x="1150" y="842" fill="#d7d1e1" font-size="11">Run diagnostics</text>
+    <rect x="242" y="210" width="508" height="190" rx="5" fill="#1c1728"/>
+    <text x="260" y="240" fill="#f2eff8" font-size="16" font-weight="700">FFPFSC library</text>
+    <text x="260" y="263" fill="#9f97ad" font-size="11">Saved roots auto-scan and can optionally watch for changes.</text>
+    <rect x="260" y="282" width="278" height="36" fill="#251e34" stroke="#342a48"/>
+    <text x="272" y="305" fill="#d7d1e1" font-family="Consolas" font-size="12">G:\PS5\FFPFSC</text>
+    <rect x="548" y="282" width="88" height="36" fill="#251e34" stroke="#a875d6"/>
+    <text x="567" y="305" fill="#f2eff8" font-size="12">Browse</text>
+    <rect x="646" y="282" width="92" height="36" fill="#251e34" stroke="#a875d6"/>
+    <text x="658" y="305" fill="#f2eff8" font-size="12">+ Add folder</text>
+    <rect x="260" y="334" width="96" height="34" rx="3" fill="#251e34" stroke="#342a48"/>
+    <text x="279" y="356" fill="#d7d1e1" font-size="12">Options</text>
+    <rect x="610" y="328" width="128" height="42" rx="3" fill="#a875d6"/>
+    <text x="631" y="354" fill="#ffffff" font-size="13" font-weight="700">Scan now  F5</text>
+    <rect x="260" y="374" width="120" height="20" rx="3" fill="#10271f" stroke="#57c7a5"/>
+    <text x="270" y="388" fill="#57c7a5" font-size="10" font-weight="700">Live watch: ON</text>
+    <text x="390" y="388" fill="#9f97ad" font-size="10">Added 1 • Removed 0 • Modified 0</text>
 
-    <rect x="242" y="976" width="1116" height="46" rx="4" fill="#1c1728"/>
-    <text x="260" y="1005" fill="#f2eff8" font-size="14" font-weight="700">Activity log</text>
-    <text x="370" y="1005" fill="#57c7a5" font-family="Consolas" font-size="11">[18:13:22] [INFO] Live watch active • naming profile: Full archive</text>
+    <rect x="762" y="210" width="596" height="190" rx="5" fill="#1c1728"/>
+    <text x="780" y="240" fill="#f2eff8" font-size="16" font-weight="700">Filename Builder</text>
+    <text x="780" y="263" fill="#9f97ad" font-size="11">Profiles, free component order and instant output preview.</text>
+    <rect x="1242" y="224" width="96" height="30" rx="3" fill="#251e34" stroke="#a875d6"/>
+    <text x="1260" y="244" fill="#d7d1e1" font-size="11">Profiles...</text>
+    <rect x="780" y="280" width="216" height="34" fill="#251e34" stroke="#342a48"/>
+    <text x="793" y="302" fill="#d7d1e1" font-size="12">Full archive</text>
+    <rect x="1010" y="280" width="328" height="34" fill="#251e34" stroke="#342a48"/>
+    <text x="1023" y="302" fill="#d7d1e1" font-size="12">Smart (recommended)</text>
+    <rect x="780" y="330" width="164" height="40" fill="#251e34" stroke="#342a48"/>
+    <text x="793" y="355" fill="#f2eff8" font-size="12">☑ PPSA / Title ID</text>
+    <rect x="954" y="330" width="154" height="40" fill="#251e34" stroke="#342a48"/>
+    <text x="970" y="355" fill="#f2eff8" font-size="12">☑ Game title</text>
+    <rect x="1118" y="330" width="130" height="40" fill="#251e34" stroke="#342a48"/>
+    <text x="1135" y="355" fill="#f2eff8" font-size="12">☑ Version</text>
+    <text x="780" y="390" fill="#9f97ad" font-size="10">Separator “ - ” • Preview: PPSA01285 - Returnal - v1.0.ffpfsc</text>
+
+    <rect x="242" y="414" width="1116" height="90" rx="5" fill="#1c1728"/>
+    <text x="260" y="442" fill="#f2eff8" font-size="15" font-weight="700">Analysis</text>
+    <text x="1262" y="442" fill="#57c7a5" font-size="12">126/126 • 100%</text>
+    <rect x="260" y="458" width="1078" height="10" rx="5" fill="#251e34"/>
+    <rect x="260" y="458" width="1078" height="10" rx="5" fill="#a875d6"/>
+    <text x="260" y="490" fill="#9f97ad" font-size="10">Complete • cache 124 • MkPFS 2 • 4 worker(s)</text>
+
+    <rect x="242" y="518" width="1116" height="188" fill="#15111f" stroke="#342a48"/>
+    <rect x="242" y="518" width="1116" height="36" fill="#251e34"/>
+    <g fill="#f2eff8" font-size="11" font-weight="700">
+      <text x="264" y="541">Current file</text><text x="548" y="541">Title ID</text><text x="670" y="541">Title</text><text x="930" y="541">Version</text><text x="1035" y="541">Size</text><text x="1140" y="541">Proposed output</text><text x="1300" y="541">Status</text>
+    </g>
+    <rect x="246" y="558" width="1108" height="34" fill="#241632"/>
+    <g font-size="11">
+      <text x="258" y="579" fill="#f2eff8">Returnal\PPSA01285.ffpfsc</text><text x="548" y="579" fill="#f2eff8">PPSA01285</text><text x="670" y="579" fill="#f2eff8">Returnal</text><text x="930" y="579" fill="#f2eff8">01.000.000</text><text x="1035" y="579" fill="#f2eff8">56.3 GB</text><text x="1140" y="579" fill="#f2eff8">PPSA01285 - Returnal - v1.0.ffpfsc</text><text x="1300" y="579" fill="#57c7a5">READY</text>
+      <text x="258" y="614" fill="#57c7a5">A Plague Tale Requiem\PPSA05366.ffpfsc</text><text x="548" y="614" fill="#57c7a5">PPSA05366</text><text x="670" y="614" fill="#57c7a5">A Plague Tale: Requiem</text><text x="930" y="614" fill="#57c7a5">01.005.000</text><text x="1035" y="614" fill="#57c7a5">48.6 GB</text><text x="1300" y="614" fill="#57c7a5">READY</text>
+      <text x="258" y="649" fill="#57c7a5">Atomic Heart\PPSA10695.ffpfsc</text><text x="548" y="649" fill="#57c7a5">PPSA10695</text><text x="670" y="649" fill="#57c7a5">Atomic Heart</text><text x="930" y="649" fill="#57c7a5">01.011.000</text><text x="1035" y="649" fill="#57c7a5">48.6 GB</text><text x="1300" y="649" fill="#57c7a5">READY</text>
+      <text x="258" y="684" fill="#df6877">Ghostwire Tokyo\PPSA01337.ffpfsc</text><text x="548" y="684" fill="#df6877">PPSA01337</text><text x="670" y="684" fill="#df6877">Ghostwire: Tokyo</text><text x="930" y="684" fill="#df6877">01.009.000</text><text x="1035" y="684" fill="#df6877">27.1 GB</text><text x="1300" y="684" fill="#df6877">COLLISION</text>
+    </g>
+
+    <rect x="242" y="720" width="1116" height="204" rx="5" fill="#1c1728"/>
+    <text x="260" y="748" fill="#f2eff8" font-size="15" font-weight="700">Game details</text>
+    <text x="366" y="748" fill="#57c7a5" font-size="11">Details cache • icon0.png + param.json</text>
+    <rect x="260" y="766" width="108" height="28" rx="4" fill="#a875d6"/><text x="286" y="785" fill="#ffffff" font-size="11" font-weight="700">Details</text>
+    <rect x="374" y="766" width="108" height="28" rx="4" fill="#251e34"/><text x="394" y="785" fill="#d7d1e1" font-size="11">param.json</text>
+    <rect x="260" y="808" width="142" height="98" rx="6" fill="#251e34" stroke="#342a48"/>
+    <rect x="282" y="822" width="98" height="70" rx="8" fill="#0e2437"/><circle cx="331" cy="857" r="27" fill="#3d7f9f"/><circle cx="331" cy="857" r="12" fill="#0b0911"/>
+    <g font-size="11"><text x="430" y="824" fill="#9f97ad">Title</text><text x="555" y="824" fill="#f2eff8" font-weight="700">Returnal</text><text x="430" y="848" fill="#9f97ad">Title ID</text><text x="555" y="848" fill="#d7d1e1">PPSA01285</text><text x="430" y="872" fill="#9f97ad">Content version</text><text x="555" y="872" fill="#d7d1e1">01.000.000</text><text x="430" y="896" fill="#9f97ad">Source</text><text x="555" y="896" fill="#57c7a5">Details cache</text></g>
+    <rect x="1006" y="818" width="154" height="34" fill="#10271f" stroke="#57c7a5"/><text x="1020" y="840" fill="#57c7a5" font-size="10">Rename pre-flight: READY</text>
+    <rect x="1170" y="818" width="168" height="34" fill="#251e34" stroke="#a875d6"/><text x="1183" y="840" fill="#d7d1e1" font-size="10">Tools → Safety self-test</text>
+    <text x="1006" y="878" fill="#9f97ad" font-size="10">Post-rename: same filesystem object</text>
+    <text x="1006" y="898" fill="#9f97ad" font-size="10">Undo journal: enabled</text>
+
+    <rect x="242" y="938" width="1116" height="42" rx="5" fill="#1c1728"/>
+    <text x="260" y="964" fill="#f2eff8" font-size="13" font-weight="700">Activity log</text>
+    <text x="358" y="964" fill="#57c7a5" font-family="Consolas" font-size="10">[21:31:08] [OK] Rename self-test PASS • 5/5 checks</text>
+    <text x="1220" y="964" fill="#9f97ad" font-size="10">Created by </text><text x="1282" y="964" fill="#a875d6" font-size="10" font-weight="700">XaRaBaS</text>
   </g>
 </svg>
