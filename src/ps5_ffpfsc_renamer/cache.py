@@ -20,6 +20,14 @@ class CacheLookup:
     source: str = "miss"
 
 
+@dataclass(frozen=True, slots=True)
+class CacheStats:
+    entries: int
+    database_bytes: int
+    oldest_updated_at: int | None
+    newest_updated_at: int | None
+
+
 def default_cache_path() -> Path:
     base = os.environ.get("LOCALAPPDATA")
     if base:
@@ -274,3 +282,66 @@ class MetadataCache:
                 (CACHE_SCHEMA_VERSION,),
             ).fetchone()
         return int(row["count"] if row is not None else 0)
+
+    def stats(self) -> CacheStats:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS count,
+                       MIN(updated_at) AS oldest,
+                       MAX(updated_at) AS newest
+                FROM metadata_cache
+                WHERE schema_version = ?
+                """,
+                (CACHE_SCHEMA_VERSION,),
+            ).fetchone()
+
+        database_bytes = 0
+        for candidate in (
+            self.db_path,
+            self.db_path.with_name(self.db_path.name + "-wal"),
+            self.db_path.with_name(self.db_path.name + "-shm"),
+        ):
+            try:
+                database_bytes += candidate.stat().st_size
+            except OSError:
+                pass
+
+        return CacheStats(
+            entries=int(row["count"] if row is not None else 0),
+            database_bytes=database_bytes,
+            oldest_updated_at=(
+                int(row["oldest"])
+                if row is not None and row["oldest"] is not None
+                else None
+            ),
+            newest_updated_at=(
+                int(row["newest"])
+                if row is not None and row["newest"] is not None
+                else None
+            ),
+        )
+
+    def prune_missing(self) -> int:
+        """Remove cache entries whose recorded file path no longer exists."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT path_key, path FROM metadata_cache WHERE schema_version = ?",
+                (CACHE_SCHEMA_VERSION,),
+            ).fetchall()
+            missing = [row["path_key"] for row in rows if not Path(row["path"]).exists()]
+            if missing:
+                connection.executemany(
+                    "DELETE FROM metadata_cache WHERE path_key = ?",
+                    [(key,) for key in missing],
+                )
+        return len(missing)
+
+    def vacuum(self) -> None:
+        """Compact the SQLite file after large cache cleanup operations."""
+        connection = self._connect()
+        try:
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            connection.execute("VACUUM")
+        finally:
+            connection.close()
