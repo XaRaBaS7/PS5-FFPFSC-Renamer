@@ -2,6 +2,54 @@
 
 All notable changes to PS5 FFPFSC Renamer are documented here.
 
+## [0.4.0] - Unreleased
+
+### Smart Library
+
+- Optional **Live Library Watch** for selected roots with 15/30/60/120 second intervals.
+- Live Watch checks only path, size and modification time; MkPFS is launched only after a real library change triggers a scan.
+- Temporarily unavailable drives are reported without clearing or corrupting the current library view.
+- Live Watch is disabled by default so archival HDDs are not woken unnecessarily.
+
+### Game Details
+
+- New collapsible **Game details** workspace linked to the selected result row.
+- Selective MkPFS extraction of only `sce_sys/param.json` and `sce_sys/icon0.png` rather than the full FFPFSC payload.
+- Details view shows icon, title, Title ID/PPSA, content version, master version, FFPFSC size, Renamer status, data source and path.
+- Raw formatted `param.json` tab with clipboard copy.
+- Detail loading is asynchronous, debounced and cancellable so quickly moving through the results does not keep obsolete disk reads running.
+- Dedicated details/artwork cache under App Data.
+- Cache Manager now reports details-cache entry count, valid/stale entries and disk usage, with prune and clear actions.
+- Details cache is migrated after rename transactions instead of forcing a new selective extraction at the destination path.
+- Multi-selection shows an in-memory summary (count, total size, unique Title IDs and status distribution) without invoking MkPFS.
+
+### Naming
+
+- Reusable **Naming Profiles** that can be applied without rescanning the library.
+- Bundled profiles for PPSA-only compatibility, PPSA + Title, Title + PPSA, full archive naming and Title + Version + PPSA.
+- User-created profiles are stored persistently in App Data and can be updated or deleted.
+- Custom filename separator support, persisted with the rest of the builder configuration and included in profiles.
+
+### Insights & maintenance
+
+- New **Library Statistics** window generated entirely from the current in-memory results.
+- Shows file count, total/average known size, unique Title IDs, duplicate groups, status distribution, largest games and details-cache usage.
+- New details-cache statistics/pruning helpers and tests.
+
+### Documentation & quality
+
+- README now contains a versioned application Preview near the top of the document.
+- Added `docs/SCREENSHOT_POLICY.md` and an automated CI check: visible GUI changes must refresh the canonical README preview before merge.
+- Expanded test coverage for Smart Library settings, Live Watch snapshots, Game Details cache, cache migration, naming profiles, custom separators and library statistics.
+
+### Performance & safety
+
+- Game artwork/JSON is loaded on demand instead of during the main scan.
+- Cached details survive normal rename operations through cache-key migration.
+- Batch/multi-selection inspection never starts unnecessary MkPFS processes.
+- All v0.3 transactional rename, collision, Undo and selected-root protections remain in force.
+- FFPFSC contents are never rewritten or recompressed by these features.
+
 ## [0.3.1] - 2026-08-25
 
 ### Fixed
@@ -22,7 +70,6 @@ All notable changes to PS5 FFPFSC Renamer are documented here.
 
 ### Changed
 
-- Removed the personal `Created by XaRaBaS` footer signature from the README; author attribution remains inside the application UI where the clickable repository link belongs.
 - Moved the source-development launcher from root `RUN.bat` to `tools\dev\RUN_DEV.bat` so the repository root better reflects the packaged end-user experience.
 - README now clearly distinguishes development files from the standalone Windows release package.
 
