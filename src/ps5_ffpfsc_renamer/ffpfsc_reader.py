@@ -35,17 +35,51 @@ def _get_default_cache() -> MetadataCache:
     return _default_cache
 
 
+def _bundled_mkpfs_helper() -> Path | None:
+    """Return the sibling helper executable used by PyInstaller releases."""
+    if not getattr(sys, "frozen", False):
+        return None
+    base = Path(sys.executable).resolve().parent
+    candidates = (
+        base / "mkpfs-helper.exe",
+        base / "mkpfs-helper",
+        base / "tools" / "mkpfs-helper.exe",
+        base / "tools" / "mkpfs-helper",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def mkpfs_available() -> bool:
-    """Return True when MkPFS can be launched from this Python environment."""
-    return shutil.which("mkpfs") is not None or importlib.util.find_spec("mkpfs") is not None
+    """Return True when MkPFS can be launched from this environment."""
+    return (
+        _bundled_mkpfs_helper() is not None
+        or shutil.which("mkpfs") is not None
+        or importlib.util.find_spec("mkpfs") is not None
+    )
 
 
 def _mkpfs_command() -> list[str]:
+    helper = _bundled_mkpfs_helper()
+    if helper is not None:
+        return [str(helper)]
+
     executable = shutil.which("mkpfs")
     if executable:
         return [executable]
-    if importlib.util.find_spec("mkpfs") is not None:
+
+    # In a normal Python environment, launching ``python -m mkpfs`` keeps the
+    # metadata parser isolated and cancellable. Do not use sys.executable this
+    # way in a frozen app: there it points to the GUI executable, not Python.
+    if not getattr(sys, "frozen", False) and importlib.util.find_spec("mkpfs") is not None:
         return [sys.executable, "-m", "mkpfs"]
+
+    if getattr(sys, "frozen", False):
+        raise MetadataReadError(
+            "The bundled MkPFS helper is missing. Reinstall/extract the complete PS5 FFPFSC Renamer release folder."
+        )
     raise MetadataReadError(
         "MkPFS is not installed. Install it with: python -m pip install mkpfs==0.0.9"
     )
@@ -86,14 +120,9 @@ def read_metadata(
             if cached.hit and cached.metadata is not None:
                 return cached.metadata
         except Exception:
-            # Cache failure must never prevent metadata analysis. The DB is an
-            # optimization only; MkPFS remains the source of truth on a miss.
             active_cache = None
 
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-renamer-") as temp_name:
-        # MkPFS 0.0.9 expects the output path not to exist unless
-        # --overwrite is supplied. Keep the TemporaryDirectory as a private
-        # parent and hand MkPFS a child path that has not been created yet.
         output_dir = Path(temp_name) / "extract"
         command = [
             *_mkpfs_command(),
