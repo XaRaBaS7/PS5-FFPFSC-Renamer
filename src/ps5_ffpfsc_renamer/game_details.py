@@ -33,6 +33,14 @@ class GameDetails:
     cache_hit: bool
 
 
+@dataclass(frozen=True, slots=True)
+class DetailsCacheStats:
+    entries: int = 0
+    valid_entries: int = 0
+    stale_entries: int = 0
+    bytes_on_disk: int = 0
+
+
 def default_details_cache_root() -> Path:
     base = os.environ.get("LOCALAPPDATA")
     root = Path(base) / "PS5-FFPFSC-Renamer" if base else Path.home() / ".ps5-ffpfsc-renamer"
@@ -257,6 +265,97 @@ def load_game_details(
             icon_path=cached_icon,
             cache_hit=False,
         )
+
+
+def _directory_size(folder: Path) -> int:
+    total = 0
+    try:
+        paths = folder.rglob("*")
+        for path in paths:
+            try:
+                if path.is_file():
+                    total += int(path.stat().st_size)
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return total
+
+
+def _cache_entry_is_valid(folder: Path) -> bool:
+    manifest_path = folder / "manifest.json"
+    param_path = folder / "param.json"
+    if not manifest_path.is_file() or not param_path.is_file():
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(manifest, dict) or manifest.get("schema") != _CACHE_SCHEMA:
+        return False
+    source_text = manifest.get("source")
+    if not isinstance(source_text, str) or not source_text.strip():
+        return False
+    source = Path(source_text)
+    try:
+        size, mtime_ns = _identity(source)
+    except OSError:
+        return False
+    try:
+        expected_size = int(manifest.get("size"))
+        expected_mtime = int(manifest.get("mtime_ns"))
+    except (TypeError, ValueError):
+        return False
+    return size == expected_size and mtime_ns == expected_mtime
+
+
+def details_cache_stats(cache_root: Path | None = None) -> DetailsCacheStats:
+    root = cache_root or default_details_cache_root()
+    if not root.exists():
+        return DetailsCacheStats()
+    entries = 0
+    valid = 0
+    stale = 0
+    bytes_on_disk = 0
+    try:
+        children = list(root.iterdir())
+    except OSError:
+        return DetailsCacheStats()
+    for child in children:
+        if not child.is_dir():
+            continue
+        entries += 1
+        bytes_on_disk += _directory_size(child)
+        if _cache_entry_is_valid(child):
+            valid += 1
+        else:
+            stale += 1
+    return DetailsCacheStats(
+        entries=entries,
+        valid_entries=valid,
+        stale_entries=stale,
+        bytes_on_disk=bytes_on_disk,
+    )
+
+
+def prune_details_cache(cache_root: Path | None = None) -> int:
+    root = cache_root or default_details_cache_root()
+    if not root.exists():
+        return 0
+    removed = 0
+    try:
+        children = list(root.iterdir())
+    except OSError:
+        return 0
+    for child in children:
+        if not child.is_dir() or _cache_entry_is_valid(child):
+            continue
+        try:
+            shutil.rmtree(child)
+            removed += 1
+        except OSError:
+            pass
+    return removed
 
 
 def clear_details_cache(cache_root: Path | None = None) -> int:
