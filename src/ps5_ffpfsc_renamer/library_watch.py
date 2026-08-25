@@ -17,6 +17,21 @@ class LibrarySnapshot:
         return len(self.files)
 
 
+@dataclass(frozen=True, slots=True)
+class LibraryChanges:
+    added: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+    modified: tuple[str, ...] = ()
+
+    @property
+    def total(self) -> int:
+        return len(self.added) + len(self.removed) + len(self.modified)
+
+    @property
+    def paths(self) -> tuple[str, ...]:
+        return tuple(sorted((*self.added, *self.removed, *self.modified), key=str.casefold))
+
+
 def snapshot_library(roots: Iterable[Path], *, recursive: bool = True) -> LibrarySnapshot:
     rows: list[tuple[str, int, int]] = []
     unavailable: list[str] = []
@@ -50,9 +65,22 @@ def snapshot_library(roots: Iterable[Path], *, recursive: bool = True) -> Librar
     return LibrarySnapshot(tuple(rows), tuple(unavailable))
 
 
-def changed_paths(before: LibrarySnapshot, after: LibrarySnapshot) -> tuple[str, ...]:
+def diff_snapshots(before: LibrarySnapshot, after: LibrarySnapshot) -> LibraryChanges:
     old = {path: (size, mtime) for path, size, mtime in before.files}
     new = {path: (size, mtime) for path, size, mtime in after.files}
-    changed = set(old).symmetric_difference(new)
-    changed.update(path for path in old.keys() & new.keys() if old[path] != new[path])
-    return tuple(sorted(changed, key=str.casefold))
+    old_paths = set(old)
+    new_paths = set(new)
+    added = tuple(sorted(new_paths - old_paths, key=str.casefold))
+    removed = tuple(sorted(old_paths - new_paths, key=str.casefold))
+    modified = tuple(
+        sorted(
+            (path for path in old_paths & new_paths if old[path] != new[path]),
+            key=str.casefold,
+        )
+    )
+    return LibraryChanges(added=added, removed=removed, modified=modified)
+
+
+def changed_paths(before: LibrarySnapshot, after: LibrarySnapshot) -> tuple[str, ...]:
+    """Backward-compatible flattened change list."""
+    return diff_snapshots(before, after).paths
