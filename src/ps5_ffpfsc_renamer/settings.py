@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
-SETTINGS_SCHEMA_VERSION = 5
+SETTINGS_SCHEMA_VERSION = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,14 +28,18 @@ class AppSettings:
     sort_column: str = "file"
     sort_descending: bool = False
 
-    # v0.3 desktop behavior. These defaults intentionally make a restored
-    # library useful immediately without forcing the user to Browse again.
+    # Desktop behavior.
     autoscan_on_start: bool = True
     autoscan_on_browse: bool = True
     autoscan_on_add_folder: bool = True
     remember_window_geometry: bool = True
     show_relative_paths: bool = True
     auto_prune_cache: bool = False
+
+    # v0.4 Smart Library behavior. Disabled by default so HDDs/network shares
+    # are never polled unless the user explicitly opts in.
+    watch_library: bool = False
+    watch_interval_seconds: int = 30
 
 
 def default_settings_path() -> Path:
@@ -110,6 +114,15 @@ def _bool_setting(data: dict[str, object], key: str, default: bool) -> bool:
     return value if isinstance(value, bool) else default
 
 
+def _watch_interval(value: object, default: int = 30) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    allowed = (15, 30, 60, 120)
+    return min(allowed, key=lambda item: abs(item - parsed))
+
+
 def load_settings(settings_path: Path | None = None) -> AppSettings:
     """Load settings defensively, including migration from older schemas."""
     path = settings_path or default_settings_path()
@@ -176,6 +189,10 @@ def load_settings(settings_path: Path | None = None) -> AppSettings:
         ),
         show_relative_paths=_bool_setting(data, "show_relative_paths", defaults.show_relative_paths),
         auto_prune_cache=_bool_setting(data, "auto_prune_cache", defaults.auto_prune_cache),
+        watch_library=_bool_setting(data, "watch_library", defaults.watch_library),
+        watch_interval_seconds=_watch_interval(
+            data.get("watch_interval_seconds"), defaults.watch_interval_seconds
+        ),
     )
 
 
@@ -186,6 +203,7 @@ def save_settings(settings: AppSettings, settings_path: Path | None = None) -> P
         settings,
         library_roots=normalized_roots,
         mkpfs_path=_safe_optional_path(settings.mkpfs_path),
+        watch_interval_seconds=_watch_interval(settings.watch_interval_seconds),
     )
     payload = asdict(normalized)
     payload["schema_version"] = SETTINGS_SCHEMA_VERSION
