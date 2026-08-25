@@ -1,0 +1,72 @@
+name: build-windows
+
+on:
+  pull_request:
+  push:
+    branches: ["feature/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" "mkpfs==0.0.9" pyinstaller
+
+      - name: Compile and test
+        shell: pwsh
+        run: |
+          python -m compileall -q src tools
+          pytest -q
+
+      - name: Build MkPFS helper
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --console `
+            --name mkpfs-helper `
+            --collect-all mkpfs `
+            --hidden-import cryptography `
+            --hidden-import zlib_ng `
+            tools/mkpfs_helper.py
+          .\dist\mkpfs-helper.exe --help
+
+      - name: Build PS5 FFPFSC Renamer
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onedir --windowed `
+            --name PS5-FFPFSC-Renamer `
+            --paths src `
+            --collect-submodules send2trash `
+            tools/app_entry.py
+
+      - name: Assemble release folder
+        shell: pwsh
+        run: |
+          $app = ".\dist\PS5-FFPFSC-Renamer"
+          Copy-Item ".\dist\mkpfs-helper.exe" "$app\mkpfs-helper.exe"
+          Copy-Item ".\README.md" "$app\README.md"
+          Copy-Item ".\LICENSE" "$app\LICENSE"
+          Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
+          Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
+
+          New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
+          python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
+
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          Compress-Archive -Path "$app\*" -DestinationPath ".\dist\PS5-FFPFSC-Renamer-v$version-Windows-x64.zip" -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS5-FFPFSC-Renamer-Windows-x64
+          path: dist/PS5-FFPFSC-Renamer-v*-Windows-x64.zip
+          if-no-files-found: error
