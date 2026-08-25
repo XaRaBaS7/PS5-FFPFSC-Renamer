@@ -54,11 +54,11 @@ def _bundled_mkpfs_helper() -> Path | None:
 
 def mkpfs_available() -> bool:
     """Return True when MkPFS can be launched from this environment."""
-    return (
-        _bundled_mkpfs_helper() is not None
-        or shutil.which("mkpfs") is not None
-        or importlib.util.find_spec("mkpfs") is not None
-    )
+    helper = _bundled_mkpfs_helper()
+    executable = shutil.which("mkpfs")
+    if getattr(sys, "frozen", False):
+        return helper is not None or executable is not None
+    return executable is not None or importlib.util.find_spec("mkpfs") is not None
 
 
 def _mkpfs_command() -> list[str]:
