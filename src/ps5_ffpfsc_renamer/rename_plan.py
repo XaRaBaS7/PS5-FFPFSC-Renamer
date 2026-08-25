@@ -56,6 +56,24 @@ def _ffpfsc_children(directory: Path) -> list[Path]:
         raise ValueError(f"Unable to inspect folder {directory}: {exc}") from exc
 
 
+def _resolve_library_root(source: Path, roots: tuple[Path, ...]) -> Path | None:
+    """Return the most specific selected root containing source."""
+    if not roots:
+        return None
+    source = source.resolve()
+    matches: list[Path] = []
+    for root in roots:
+        resolved = root.resolve()
+        try:
+            source.relative_to(resolved)
+        except ValueError:
+            continue
+        matches.append(resolved)
+    if not matches:
+        return None
+    return max(matches, key=lambda item: len(item.parts))
+
+
 def _destination_for(
     source: Path,
     metadata: GameMetadata,
@@ -79,8 +97,8 @@ def _destination_for(
     parent = source.parent.resolve()
     root = (library_root or parent).resolve()
 
-    # The selected root is never renamed. A loose file in that root gets a
-    # generated per-game folder instead.
+    # A selected root is never renamed. A loose file directly in that root
+    # receives a generated per-game folder instead.
     if _path_key(parent) == _path_key(root):
         target_directory = root / stem
         return target_directory / filename, target_directory, None
@@ -113,37 +131,47 @@ def build_rename_plan(
     library_root: Path | None = None,
 ) -> list[RenamePlanItem]:
     options = options or NamingOptions()
-    if library_root is not None:
-        root = library_root.resolve()
+
+    roots: list[Path] = []
+    if options.library_roots:
+        roots.extend(Path(value).resolve() for value in options.library_roots if value)
+    elif library_root is not None:
+        roots.append(library_root.resolve())
     elif options.library_root:
-        root = Path(options.library_root).resolve()
-    else:
-        root = None
+        roots.append(Path(options.library_root).resolve())
+    roots_tuple = tuple(roots)
 
     destinations: dict[str, int] = {}
     directory_targets: dict[str, int] = {}
     provisional: list[
-        tuple[Path, Path, Path | None, Path | None, GameMetadata, str | None]
+        tuple[Path, Path, Path | None, Path | None, Path | None, GameMetadata, str | None]
     ] = []
 
     for source, metadata in items:
         source = source.resolve()
-        try:
-            destination, target_directory, source_directory = _destination_for(
-                source,
-                metadata,
-                options,
-                root,
-            )
-            error = None
-        except ValueError as exc:
+        root = _resolve_library_root(source, roots_tuple)
+        if roots_tuple and root is None:
             destination = source
             target_directory = None
             source_directory = None
-            error = str(exc)
+            error = "source folder is outside the selected library roots"
+        else:
+            try:
+                destination, target_directory, source_directory = _destination_for(
+                    source,
+                    metadata,
+                    options,
+                    root,
+                )
+                error = None
+            except ValueError as exc:
+                destination = source
+                target_directory = None
+                source_directory = None
+                error = str(exc)
 
         provisional.append(
-            (source, destination, target_directory, source_directory, metadata, error)
+            (source, destination, target_directory, source_directory, root, metadata, error)
         )
         if error is None:
             destination_key = _path_key(destination)
@@ -153,7 +181,7 @@ def build_rename_plan(
                 directory_targets[directory_key] = directory_targets.get(directory_key, 0) + 1
 
     result: list[RenamePlanItem] = []
-    for source, destination, target_directory, source_directory, metadata, error in provisional:
+    for source, destination, target_directory, source_directory, root, metadata, error in provisional:
         def add(status: PlanStatus, reason: str = "") -> None:
             result.append(
                 RenamePlanItem(
