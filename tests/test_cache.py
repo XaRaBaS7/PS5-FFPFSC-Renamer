@@ -73,3 +73,34 @@ def test_cache_clear(tmp_path: Path) -> None:
 
     cache.clear()
     assert cache.entry_count() == 0
+
+
+def test_cache_stats_report_entries_and_database_size(tmp_path: Path) -> None:
+    image = tmp_path / "game.ffpfsc"
+    image.write_bytes(b"data")
+    cache = MetadataCache(tmp_path / "cache.sqlite3")
+    cache.store(image, GameMetadata("PPSA01285"))
+
+    stats = cache.stats()
+
+    assert stats.entries == 1
+    assert stats.database_bytes > 0
+    assert stats.oldest_updated_at is not None
+    assert stats.newest_updated_at is not None
+
+
+def test_prune_missing_removes_only_stale_paths(tmp_path: Path) -> None:
+    keep = tmp_path / "keep.ffpfsc"
+    stale = tmp_path / "stale.ffpfsc"
+    keep.write_bytes(b"keep")
+    stale.write_bytes(b"stale")
+    cache = MetadataCache(tmp_path / "cache.sqlite3")
+    cache.store(keep, GameMetadata("PPSA00001"))
+    cache.store(stale, GameMetadata("PPSA00002"))
+    stale.unlink()
+
+    removed = cache.prune_missing()
+
+    assert removed == 1
+    assert cache.entry_count() == 1
+    assert cache.lookup(keep).hit is True
