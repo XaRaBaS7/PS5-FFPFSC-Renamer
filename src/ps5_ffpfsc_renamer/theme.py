@@ -202,6 +202,15 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         thickness=10,
     )
     style.configure(
+        "Activity.Horizontal.TProgressbar",
+        troughcolor=COLORS["panel_alt"],
+        background=COLORS["success"],
+        bordercolor=COLORS["panel_alt"],
+        lightcolor=COLORS["success"],
+        darkcolor=COLORS["success"],
+        thickness=7,
+    )
+    style.configure(
         "Vertical.TScrollbar",
         background=COLORS["panel_alt"],
         troughcolor=COLORS["surface"],

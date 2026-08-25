@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-cd /d "%~dp0"
+cd /d "%~dp0\..\.."
 
 echo ============================================================
 echo  PS5 FFPFSC Renamer - Development Launcher
@@ -29,7 +29,6 @@ if not errorlevel 1 (
     )
 )
 
-rem Fall back to python.exe on PATH.
 if not defined PY_CMD (
     where python >nul 2>&1
     if not errorlevel 1 (
@@ -45,22 +44,16 @@ if not defined PY_CMD goto :python_missing
 
 echo [OK] Using !PY_LABEL!
 echo.
-
 goto :ensure_venv
 
 :ensure_venv
 if not exist ".venv\Scripts\python.exe" goto :create_venv
 
 echo [1/4] Virtual environment already exists.
-
-rem Validate both Python and pip. A half-corrupted .venv can still contain
-rem python.exe while site-packages is unreadable (for example WinError 1392).
 ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)" >nul 2>&1
 if errorlevel 1 goto :repair_venv
-
 ".venv\Scripts\python.exe" -c "import pip; import pip._internal" >nul 2>&1
 if errorlevel 1 goto :repair_venv
-
 goto :install_dependencies
 
 :create_venv
@@ -85,14 +78,10 @@ set "VENV_REPAIRED=1"
 echo.
 echo [WARNING] The existing .venv is damaged or unusable.
 echo [REPAIR] Removing the local virtual environment and rebuilding it...
-
 rmdir /s /q ".venv" >nul 2>&1
 if exist ".venv" (
     echo.
     echo [ERROR] Windows could not remove the damaged .venv folder.
-    echo This usually indicates a filesystem problem on the drive containing
-    echo the project, not a PS5 FFPFSC Renamer problem.
-    echo.
     echo Close programs using this drive, then run as Administrator:
     echo   chkdsk %~d0 /scan
     echo.
@@ -126,10 +115,6 @@ echo [ERROR] The virtual environment is still unusable after rebuilding it.
 echo This strongly suggests a filesystem/storage problem on %~d0.
 echo Run as Administrator:
 echo   chkdsk %~d0 /scan
-echo.
-echo If errors are reported:
-echo   chkdsk %~d0 /f /x
-echo.
 pause
 exit /b 1
 
@@ -138,17 +123,8 @@ echo [ERROR] No supported Python runtime was found.
 echo.
 echo PS5 FFPFSC Renamer requires Python 3.11 or newer.
 echo.
-echo Detected runtimes from the Windows Python Launcher:
-where py >nul 2>&1
-if errorlevel 1 (
-    echo   py.exe not found
-) else (
-    py -0p 2>nul
-)
-echo.
-echo Install a 64-bit Python 3.11 or newer, then run RUN.bat again.
+echo Install a 64-bit Python 3.11 or newer, then run tools\dev\RUN_DEV.bat again.
 echo Recommended: Python 3.13 x64 from python.org.
-echo During installation enable "Add python.exe to PATH" if offered.
 echo.
 pause
 exit /b 1
@@ -158,9 +134,7 @@ echo.
 echo [ERROR] Dependency installation failed.
 echo Check the output above and your Internet connection.
 echo.
-echo If the output contains WinError 1392 or says a file/directory is
- echo damaged or unreadable, run:
-echo   chkdsk %~d0 /scan
-echo and repair the drive if Windows reports filesystem errors.
+echo If the output contains WinError 1392 or says a file/directory is damaged,
+echo run chkdsk on the project drive before retrying.
 pause
 exit /b 1

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .ffpfsc_reader import _mkpfs_command
 from .metadata import GameMetadata
+from .process_utils import run_hidden
 
 _PPSA_SEARCH_RE = re.compile(r"(?<![A-Z0-9])(PPSA[0-9]{5})(?![0-9])", re.IGNORECASE)
 _SEPARATOR_RE = re.compile(r"^[\s._\-–—\[\]()]+|[\s._\-–—\[\]()]+$")
@@ -123,7 +124,7 @@ def _human_size(size: int) -> str:
 
 def _run(command: list[str], timeout: int) -> tuple[int, str]:
     try:
-        completed = subprocess.run(
+        completed = run_hidden(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

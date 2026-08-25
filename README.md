@@ -2,69 +2,100 @@
 
 Windows utility for scanning PS5 `.ffpfsc` libraries, reading game metadata, previewing safe output names and renaming files/folders without rewriting the FFPFSC payload.
 
-> **Current development target: v0.3.0**
+> **Current version: v0.3.1**
 
 ## Highlights
 
-- Scan one or more folders as a single FFPFSC library.
-- Restore saved folders and **scan them automatically at startup**.
-- Keep a dedicated **Scan now / F5** action always visible for manual refreshes.
-- **Browse** and **Add folder** can scan automatically, independently configurable in Options.
-- Central **Options** window for startup, performance, naming, cache and MkPFS behavior.
+- Scan one or more folders as one logical FFPFSC library.
+- Restore saved folders and optionally scan them automatically at startup.
+- Always-visible **Scan now / F5** action.
+- Automatic scan after **Browse** and **Add folder**, configurable in Options.
+- Central **Options** window for startup, scan/performance, naming, cache and MkPFS settings.
 - Read internal `sce_sys/param.json` through MkPFS when supported.
-- Persist verified metadata in a local SQLite cache so unchanged files are skipped on later scans.
-- Cache unchanged MkPFS failures too, avoiding repeated work on persistent PARTIAL/ERROR images.
-- Build filenames in any order using **PPSA / Title ID**, **Game title** and **Version**.
-- Search, filter and sort large libraries by status, title, version, size or duplicate Title ID.
-- Display file size without reading the whole image.
-- Select multiple rows with Ctrl/Shift and use right-click operations on the selection.
-- Detect collisions before any rename.
-- Apply transactional batch renames with rollback if a later item fails.
-- Keep persistent rename history and undo the last transaction with **Ctrl+Z**.
-- Compare duplicate Title IDs using path, version, size and a lightweight sampled fingerprint.
-- Export the library as CSV/JSON and generate a Library Health report.
-- Diagnose FFPFSC images that MkPFS cannot parse through the fast metadata path.
-- Move files to the Windows Recycle Bin instead of permanently deleting them.
-- Branded in-app icons plus a dedicated Windows EXE/taskbar icon.
+- Persistent SQLite metadata cache for very fast repeat scans.
+- Cache unchanged MkPFS failures too, so persistent `PARTIAL` / `ERROR` files are not re-read unnecessarily.
+- Reorder filename components freely: **PPSA / Title ID**, **Game title**, **Version**.
+- Search, filter and sort large libraries.
+- File-size display without reading the whole image.
+- Multi-selection with Ctrl/Shift and useful right-click actions.
+- Collision detection before rename.
+- Transactional batch rename with rollback if a later operation fails.
+- Persistent rename history and **Undo / Ctrl+Z**.
+- Duplicate Title ID comparison using path, version, size and a lightweight sampled fingerprint.
+- CSV/JSON export and Library Health report.
+- Read-only diagnostics for images that fail the fast metadata path.
+- Recycle Bin integration instead of permanent deletion.
+- Branded application icons.
+- **Silent MkPFS execution on Windows**: no console popups during scan, diagnostics or engine tests.
+- **Dual progress display**: real overall library progress plus animated current-activity progress.
+- **Integrated Activity Log** with timestamped cache, MkPFS, warning and error events.
 
 ## Windows quick start
 
 ### Packaged release — recommended
 
-Download the Windows ZIP from the GitHub **Releases** page, extract the **complete folder**, then run:
+Download the Windows ZIP from GitHub **Releases**, extract the complete folder, then run:
 
 ```text
 PS5-FFPFSC-Renamer.exe
 ```
 
-The packaged release is designed to run without a separate Python installation. Keep `mkpfs-helper.exe` next to the main application executable; it is the isolated MkPFS helper used for metadata inspection.
+Keep `mkpfs-helper.exe` next to the main executable. The packaged release does not require a separate Python installation.
+
+The end-user package does **not** need `.venv`, `src`, `tests`, `.github`, `pyproject.toml` or development launchers.
 
 ### Development checkout
 
-Clone/download the repository and run:
+For source development use:
 
 ```text
-RUN.bat
+tools\dev\RUN_DEV.bat
 ```
 
-The launcher creates `.venv`, installs the project plus the tested `MkPFS 0.0.9`, and starts the GUI.
+The development launcher creates `.venv`, installs the project and the tested `MkPFS 0.0.9`, then starts the GUI.
 
 ## Library workflow
 
-1. On first use, press **Browse** and choose a folder. By default the scan begins automatically.
-2. Press **+ Add folder** to include more roots.
-3. Use **Folders (N)...** to review/remove roots.
-4. On later launches, saved roots are restored and, by default, scanned automatically.
-5. Use **Scan now / F5** whenever you want to refresh manually.
-6. Review detected metadata and the proposed output.
-7. Change filename order/preset/folder handling without rescanning.
-8. Apply only after the plan is correct.
+1. Press **Browse** and choose a folder.
+2. Press **+ Add folder** to include additional roots.
+3. Use **Folders (N)...** to review or remove roots.
+4. Saved roots can be restored and scanned automatically on later launches.
+5. Use **Scan now / F5** whenever you want a manual refresh.
+6. Review metadata and proposed output.
+7. Change filename order, preset or folder handling without rescanning.
+8. Apply the rename plan only after reviewing it.
 
-Selected roots are protected: Smart mode never renames the library root itself.
+Selected library roots are protected: Smart mode never renames the root itself.
+
+## Progress and Activity Log
+
+The Analysis area contains two progress indicators:
+
+- **Overall scan** — real determinate progress across the whole library.
+- **Current activity** — animated while file discovery, cache checks or MkPFS work is active.
+
+MkPFS does not expose a trustworthy per-file percentage for this selective metadata extraction path, so PS5 FFPFSC Renamer deliberately does not invent one.
+
+Typical log output:
+
+```text
+[17:24:08] [INFO] Scan requested: 1 root(s)
+[17:24:08] [CACHE] Discovery complete: 126 file(s), 117 cache hit(s), 9 MkPFS read(s)
+[17:24:10] [MKPFS] Processed PPSA01285.ffpfsc (118/126)
+[17:24:22] [OK] Scan complete: 126 file(s), cache 117, MkPFS 9, PARTIAL 0, ERROR 0
+```
+
+The Activity Log can be hidden/shown, copied or cleared. A rolling persistent log is stored here:
+
+```text
+%LOCALAPPDATA%\PS5-FFPFSC-Renamer\activity.log
+```
+
+MkPFS stdout/stderr are captured by the application; normal use does not open Windows console windows.
 
 ## Options
 
-The **Options** button opens a dedicated settings window so advanced configuration does not crowd the main library screen.
+The **Options** window groups advanced configuration without crowding the main library view.
 
 ### General
 
@@ -78,7 +109,16 @@ The **Options** button opens a dedicated settings window so advanced configurati
 
 - include subfolders;
 - worker count (`1`, `2`, `4`, `Auto`);
-- optional pruning of cache entries for files that no longer exist.
+- optional pruning of cache records for files that no longer exist.
+
+Recommended workers:
+
+- **1 (HDD / safest)** — mechanical drives;
+- **2** — moderate parallelism;
+- **4 (SSD / NVMe)** — faster solid-state storage;
+- **Auto** — conservative automatic choice.
+
+GPU acceleration and CPU affinity are intentionally not used for metadata scanning because this workflow is primarily storage-bound and extracts only a very small metadata file.
 
 ### Naming
 
@@ -88,8 +128,6 @@ The **Options** button opens a dedicated settings window so advanced configurati
 - optional `v` prefix;
 - Smart / File only / Always create new folder handling.
 
-Component order remains directly editable in the main **Filename Builder** because it benefits from the live preview.
-
 ### Cache & Engine
 
 - Cache Manager;
@@ -97,41 +135,37 @@ Component order remains directly editable in the main **Filename Builder** becau
 - current MkPFS source;
 - MkPFS Engine Manager / custom compatible executable.
 
-Settings are persisted here:
+Settings are stored here:
 
 ```text
 %LOCALAPPDATA%\PS5-FFPFSC-Renamer\settings.json
 ```
 
-`Clear cache` does **not** delete these preferences.
-
 ## Metadata cache
 
-Verified metadata and cached analysis failures are stored here:
+Verified metadata and cached analysis failures are stored in:
 
 ```text
 %LOCALAPPDATA%\PS5-FFPFSC-Renamer\metadata-cache.sqlite3
 ```
 
-The fastest verified-cache path checks:
+Fast cache matching uses:
 
 ```text
 normalized path + file size + modification timestamp
 ```
 
-If a known file was moved or renamed, the cache can use a lightweight quick fingerprint based on:
+For moved/renamed files or duplicate hints, the app can use a lightweight quick fingerprint based on:
 
 ```text
 file size + small samples from beginning + middle + end
 ```
 
-This reads only a tiny portion of a huge image. It is an identity hint for cache/duplicate handling, **not** a full checksum or cryptographic integrity proof.
+This is an identity hint, **not** a full checksum or cryptographic integrity proof.
 
-MkPFS failures are cached only for the exact unchanged path/size/mtime combination. **Analyze again** explicitly bypasses that cache when you want to retry a problematic image.
+`Analyze again` bypasses the failure cache when you explicitly want to retry a problematic image.
 
 ## Filename Builder
-
-Presets are shortcuts; the component order is fully user-controlled.
 
 Examples:
 
@@ -144,25 +178,21 @@ Returnal - PPSA01285 - v1.0.ffpfsc
 v1.0 - Returnal - PPSA01285.ffpfsc
 ```
 
-Version formatting supports:
+Compact version examples:
 
 ```text
-Compact:
 01.000.000 -> 1.0
 02.500.000 -> 2.5
 01.005.000 -> 1.005
-
-Original:
-01.000.000
 ```
 
-Changing output settings after a scan rebuilds the rename plan instantly from metadata already in memory; the `.ffpfsc` files are not scanned again.
+Changing output settings rebuilds the plan from metadata already in memory; `.ffpfsc` files are not rescanned.
 
 ## Folder handling
 
-### Smart (recommended)
+### Smart — recommended
 
-Loose file in a selected root:
+Loose file in a library root:
 
 ```text
 Before:
@@ -191,33 +221,27 @@ If a folder contains multiple `.ffpfsc` files, Smart mode blocks the folder rena
 
 ### File only
 
-Renames only the `.ffpfsc`; folder names stay unchanged.
+Renames only the `.ffpfsc`; folder names remain unchanged.
 
 ### Always create new folder
 
-Always creates a generated per-game folder and moves the renamed FFPFSC inside it.
+Creates a generated per-game folder and moves the renamed FFPFSC into it.
 
 ## Transaction safety and Undo
 
-Batch rename is transactional. If a later item fails, already-completed items are rolled back automatically.
+Batch rename is transactional. If a later operation fails, previously completed items are rolled back automatically.
 
-Smart-folder operations also surface incomplete rollback explicitly instead of silently hiding a half-restored filesystem state.
-
-Successful transactions are written to a persistent operation history. **Edit → Undo last rename** or `Ctrl+Z` restores the previous layout only when it is still safe to do so.
+Successful rename transactions are written to persistent history. **Edit → Undo last rename** or `Ctrl+Z` restores the previous layout only when it is still safe.
 
 Undo never overwrites paths created after the original operation, and app-created folders are removed only when empty.
 
 ## Result table
 
-The main table includes:
-
 ```text
 Current file | Title ID | Title | Version | Size | Proposed output | Status
 ```
 
-Click a column header to sort. Sorting is persisted between launches.
-
-Use the Search box for free-text filtering and the Filter selector for:
+Available filters:
 
 ```text
 ALL
@@ -230,22 +254,20 @@ ERROR
 DUPLICATES
 ```
 
-The result counter also shows the total size of currently visible rows.
-
 ### Status meanings
 
 - **READY** — the current plan can be applied.
 - **UNCHANGED** — file/output already match.
-- **COLLISION** — another file/folder would use the same target or the target already exists.
-- **INVALID** — a safety rule prevents the operation.
-- **PARTIAL** — MkPFS could not verify internal metadata, but a PPSA/title could be inferred from the filename/folder. Display-only; automatic rename is disabled.
+- **COLLISION** — the target conflicts with another item or existing filesystem object.
+- **INVALID** — a safety rule blocks the operation.
+- **PARTIAL** — metadata could not be verified internally, but PPSA/title was inferred from path; automatic rename stays disabled.
 - **ERROR** — metadata could not be read and no safe fallback was available.
 
-Hover the **Status** cell for a concise explanation. Hover a duplicate **Title ID** for a duplicate hint.
+Hover the Status cell for a concise explanation.
 
 ## Right-click actions
 
-Single row:
+Single row actions include:
 
 - Rename using current plan
 - Rename file manually
@@ -256,16 +278,11 @@ Single row:
 - Copy Title ID / PPSA
 - Show details
 - Analyze again
-- Compare duplicates (when applicable)
-- Why blocked? (when applicable)
+- Compare duplicates
+- Why blocked?
 - Delete → move to Recycle Bin
 
-Multiple selected rows:
-
-- Rename selected READY rows
-- Analyze selected again
-- Copy selected paths
-- Delete selected → Recycle Bin
+Multiple selected rows support selected rename, re-analysis, path copy and Recycle Bin operations.
 
 Filesystem-changing actions require confirmation.
 
@@ -278,8 +295,6 @@ Tools → Options / History / Health / Re-analyze problems / Cache / MkPFS / App
 Help  → About
 ```
 
-Shortcuts:
-
 ```text
 F5       Scan library
 Ctrl+Z   Undo last rename
@@ -287,20 +302,7 @@ Ctrl+A   Select all visible results
 Ctrl+E   Export library CSV
 ```
 
-## Duplicate comparison
-
-When the same Title ID appears more than once, **Compare duplicates** reports for each file:
-
-- full path;
-- game title;
-- version;
-- size;
-- status;
-- quick fingerprint.
-
-No duplicate is deleted automatically. The fingerprint reads only small samples and is explicitly not treated as a whole-file checksum.
-
-## Diagnostics and problematic images
+## Diagnostics
 
 The fast metadata reader requests only:
 
@@ -308,52 +310,36 @@ The fast metadata reader requests only:
 sce_sys/param.json
 ```
 
-through:
+using MkPFS selective extraction:
 
 ```text
 mkpfs unpack game.ffpfsc temp-dir --deep --only sce_sys/param.json --no-progress
 ```
 
-For an image that fails this path, **Run diagnostics** performs read-only MkPFS checks using `inspect` and `tree --deep`.
+For an image that fails this path, **Run diagnostics** performs read-only `inspect` and `tree --deep` checks.
 
-This helps distinguish cases such as:
-
-- wrapped exFAT not detected;
-- direct/raw PFS layouts;
-- truncated/unreadable image structure;
-- current MkPFS parser limitations.
-
-A `no inner exFAT` result does not by itself prove that a file is corrupt.
+This helps distinguish cases such as wrapped exFAT not detected, direct/raw layouts, truncated images and parser limitations. A `no inner exFAT` result does not by itself prove corruption.
 
 ## Performance
 
-The first scan of a large library may take time because every unknown image must be inspected. Repeat scans are substantially faster because the app now combines:
+Repeat scans are faster through:
 
 - verified metadata cache;
 - cached unchanged MkPFS failures;
 - batch SQLite lookups;
-- iterative `os.scandir()` filesystem discovery;
+- iterative `os.scandir()` discovery;
 - no traversal of directory symlinks/reparse points.
 
-With multiple roots, one temporarily unavailable drive/folder no longer has to stop the whole scan; available roots continue and the unavailable paths are reported.
-
-Worker choices:
-
-- **1 (HDD / safest)** — recommended for mechanical drives;
-- **2** — moderate parallelism;
-- **4 (SSD / NVMe)** — for faster solid-state storage;
-- **Auto** — conservative automatic setting.
-
-GPU acceleration and CPU affinity are intentionally not used for metadata scanning. The operation is primarily storage-bound and only extracts a very small metadata file.
+With multiple roots, an unavailable drive/folder can be skipped while other available roots continue scanning.
 
 ## Safety principles
 
 - Rename operations never rewrite or recompress FFPFSC contents.
-- Automatic rename plans use only metadata verified from internal `sce_sys/param.json` or a cache entry originally created from that verified metadata.
+- Automatic rename plans use only internally verified metadata or cache entries originally created from verified metadata.
 - Path-derived `PARTIAL` metadata is display-only.
 - Existing destination files/folders are not overwritten or merged automatically.
 - Selected library roots are never renamed by Smart mode.
-- Batch operations roll back already-completed items if a later rename fails.
+- Batch operations roll back completed items if a later rename fails.
 - Undo refuses unsafe overwrites.
 - Recycle Bin actions require confirmation.
 - Cancellation stops metadata analysis without applying rename operations.
@@ -368,17 +354,43 @@ GPU acceleration and CPU affinity are intentionally not used for metadata scanni
 >
 > Users are responsible for complying with the laws and license terms that apply in their jurisdiction. The project is not affiliated with, sponsored by, or endorsed by Sony Interactive Entertainment.
 
-## MkPFS dependency
+## Credits & Acknowledgements
 
-MkPFS is a separate project licensed under GPL-3.0. Development installs `mkpfs==0.0.9` from PyPI.
+PS5 FFPFSC Renamer is its own project, but it relies on and has benefited from the wider homebrew/open-source ecosystem. Many thanks to the authors and maintainers of the following projects.
 
-The packaged Windows release keeps MkPFS in a **separate helper executable** and includes the exact MkPFS 0.0.9 source distribution under:
+### Runtime / bundled dependencies
 
-```text
-source\third-party\
-```
+- **MkPFS — PSBrew/MkPFS**  
+  https://github.com/PSBrew/MkPFS  
+  Used as the external read-only PFS/PFSC inspection and selective-extraction engine. The tested release dependency is `MkPFS 0.0.9`. MkPFS remains separately licensed under GPL-3.0.
 
-See `THIRD_PARTY_NOTICES.md` for details.
+- **Send2Trash**  
+  https://github.com/arsenetar/send2trash  
+  Used to move files to the operating-system Recycle Bin instead of permanently deleting them.
+
+### Build / packaging tools
+
+- **PyInstaller**  
+  https://github.com/pyinstaller/pyinstaller  
+  Used by the Windows CI/release workflow to create standalone executables.
+
+### Related projects and inspiration
+
+These projects are useful references in the PS5 FFPFS/PFSC tooling ecosystem. PS5 FFPFSC Renamer does **not** claim their code as its own and does not imply affiliation with their authors.
+
+- **PS5 exFAT Image Builder — kerrdec97/ps5-exfat-builder**  
+  https://github.com/kerrdec97/ps5-exfat-builder  
+  A useful reference for PS5 image-library workflows and desktop utility UX.
+
+- **PS5 FFPFSC PRO — KINGDKAK/PS5-FFPFSC-PRO**  
+  https://github.com/KINGDKAK/PS5-FFPFSC-PRO  
+  A related FFPFSC creation/compression utility and a useful reference for workflow and progress/log presentation.
+
+- **PS5 FFPFS CLI — bizkut/ps5-ffpfs-cli**  
+  https://github.com/bizkut/ps5-ffpfs-cli  
+  A related command-line project whose Title ID auto-naming workflow helped validate the usefulness of metadata-driven naming.
+
+For exact third-party licensing and redistribution notes, see `THIRD_PARTY_NOTICES.md`.
 
 ## Development
 
@@ -395,33 +407,10 @@ Run the GUI:
 ps5-ffpfsc-renamer-gui
 ```
 
-The repository CI runs on Windows and includes source compilation, unit tests and a standalone packaged build.
-
-## Build
-
-`.github/workflows/build-windows.yml` creates a standalone Windows archive containing:
-
-```text
-PS5-FFPFSC-Renamer.exe
-mkpfs-helper.exe
-app-icon.png
-README.md
-LICENSE
-THIRD_PARTY_NOTICES.md
-CHANGELOG.md
-source\third-party\mkpfs-0.0.9...
-```
-
-The application executable embeds the generated project icon for Explorer/taskbar display.
-
-A release commit on `main` beginning with `release:` triggers the tagged GitHub release workflow.
+The Windows CI compiles the source, runs tests and builds the standalone package.
 
 ## License
 
 PS5 FFPFSC Renamer is licensed under the **MIT License**. See `LICENSE`.
 
 MkPFS remains separately licensed under GPL-3.0; see `THIRD_PARTY_NOTICES.md` and the source distribution bundled with Windows releases.
-
----
-
-Created by **XaRaBaS** — https://github.com/XaRaBaS7/PS5-FFPFSC-Renamer

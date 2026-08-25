@@ -2,6 +2,30 @@
 
 All notable changes to PS5 FFPFSC Renamer are documented here.
 
+## [0.3.1] - 2026-08-25
+
+### Fixed
+
+- MkPFS helper processes now run silently on Windows without opening a console window for every scanned file.
+- The same hidden-process behavior is used by normal metadata reads, diagnostics and MkPFS engine tests.
+
+### Added
+
+- Integrated collapsible **Activity Log** at the bottom of the application.
+- Timestamped `INFO`, `CACHE`, `MKPFS`, `OK`, `WARN` and `ERROR` events.
+- Persistent rolling activity log under `%LOCALAPPDATA%\PS5-FFPFSC-Renamer\activity.log`.
+- Activity Log copy/clear/show/hide actions.
+- Dual analysis progress display:
+  - real determinate **Overall scan** progress;
+  - animated **Current activity** bar while discovery/cache/MkPFS work is active.
+- Expanded Credits & Acknowledgements in the README for runtime dependencies, build tools and related PS5 tooling projects.
+
+### Changed
+
+- Removed the personal `Created by XaRaBaS` footer signature from the README; author attribution remains inside the application UI where the clickable repository link belongs.
+- Moved the source-development launcher from root `RUN.bat` to `tools\dev\RUN_DEV.bat` so the repository root better reflects the packaged end-user experience.
+- README now clearly distinguishes development files from the standalone Windows release package.
+
 ## [0.3.0] - 2026-08-25
 
 ### Added

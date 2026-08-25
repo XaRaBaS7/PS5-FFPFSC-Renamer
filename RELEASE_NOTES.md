@@ -1,66 +1,36 @@
-# PS5 FFPFSC Renamer v0.3.0
+# PS5 FFPFSC Renamer v0.3.1
 
-v0.3.0 turns the renamer into a more complete Windows library-management utility, with faster repeat scans, safer rename transactions and a cleaner desktop workflow.
+v0.3.1 is a focused Windows UX/reliability hotfix for the v0.3 series.
 
 ## Highlights
 
-- Saved library folders can scan automatically as soon as the app starts.
-- A dedicated **Scan now / F5** action always remains visible for manual refreshes.
-- New **Options** center groups startup, scan/performance, naming, cache and MkPFS settings.
-- Faster library discovery with `os.scandir()` and batch SQLite cache lookups.
-- Unchanged PARTIAL/ERROR images now reuse a negative cache instead of launching MkPFS again every scan.
-- Multi-root libraries keep scanning when one drive or folder is temporarily unavailable.
-- Sort results by filename, PPSA, title, version, size, proposed output or status.
-- Persistent operation history and **Undo last rename / Ctrl+Z**.
-- CSV/JSON export and a Library Health report.
-- Cache Manager and MkPFS Engine Manager are available from the Tools menu.
-- New consistent in-app icon set plus a branded Windows EXE/taskbar icon.
+- **MkPFS now runs silently on Windows** during normal scans, diagnostics and engine tests. The helper still runs exactly as required, but no console/CMD windows are shown to the user.
+- New integrated **Activity Log** at the bottom of the application with timestamped `INFO`, `CACHE`, `MKPFS`, `OK`, `WARN` and `ERROR` events.
+- The Activity Log can be shown/hidden, copied or cleared and is also persisted as a rolling log under `%LOCALAPPDATA%\PS5-FFPFSC-Renamer\activity.log`.
+- New **dual progress display**:
+  - determinate Overall scan percentage;
+  - animated Current activity bar for discovery/cache/MkPFS work.
+- README now includes clear Credits & Acknowledgements for MkPFS, Send2Trash, PyInstaller and related PS5 tooling projects.
+- The development launcher moved from root `RUN.bat` to `tools\dev\RUN_DEV.bat`; end users only need the standalone Windows release package.
 
-## Safer rename transactions
+## Why two progress bars?
 
-Batch rename is now transactional. If a later item fails, earlier completed items are rolled back automatically. Smart-folder failures also report incomplete rollback explicitly instead of silently leaving an uncertain filesystem state.
-
-Undo checks that the original destinations are still safe before moving anything back. It never overwrites newly-created files/folders, and app-created directories are removed only when empty.
-
-## Performance
-
-Repeat scans avoid unnecessary work through three paths:
-
-1. verified metadata cache for unchanged images;
-2. failure cache for unchanged images MkPFS could not parse previously;
-3. batch SQLite lookup instead of opening/querying the cache separately for every file.
-
-Recursive file discovery now uses iterative `os.scandir()` and does not follow directory symlinks/reparse points.
-
-## Options
-
-The Options window includes settings for:
-
-- scan saved folders automatically on startup;
-- scan automatically after Browse;
-- scan automatically after Add folder;
-- remember window size/position;
-- show relative or full paths;
-- include subfolders;
-- worker count for HDD/SSD/NVMe;
-- automatic pruning of missing cache records;
-- filename preset/components/version format/folder handling;
-- Cache Manager and MkPFS engine configuration.
+The whole-library percentage can be measured accurately. MkPFS selective metadata extraction does not expose a trustworthy percentage for one individual FFPFSC file, so the app uses an animated activity bar instead of presenting a fabricated per-file percentage.
 
 ## Windows package
 
-The Windows archive runs without a separate Python installation. Keep the complete extracted folder together, including `mkpfs-helper.exe`. The application EXE now carries the project icon in Explorer and the taskbar.
+Extract the complete archive and keep these executables together:
 
-The corresponding MkPFS 0.0.9 source distribution remains included under `source/third-party/`.
+```text
+PS5-FFPFSC-Renamer.exe
+mkpfs-helper.exe
+```
 
-## Important safety behavior
+No separate Python installation is required.
 
-- Rename operations never rewrite or recompress `.ffpfsc` contents.
-- Automatic rename plans use only metadata verified from internal `sce_sys/param.json` or verified metadata cache entries.
-- `PARTIAL` metadata inferred from filename/folder remains display-only.
-- Existing target files/folders are not overwritten automatically.
-- Selected library roots are protected from Smart-folder renaming.
-- Delete actions continue to use the Windows Recycle Bin after confirmation.
+## Safety
+
+Rename behavior is unchanged from v0.3.0: FFPFSC contents are never rewritten/recompressed, collisions are blocked, batch operations are rollback-protected and Undo refuses unsafe overwrites.
 
 ## Responsible use
 
