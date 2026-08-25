@@ -22,7 +22,7 @@ class RenameStep:
 
 
 class RenameTransactionError(RuntimeError):
-    """Raised when a batch fails and rollback is incomplete."""
+    """Raised when a rename or its automatic rollback is incomplete."""
 
 
 def build_forward_steps(plan: list[RenamePlanItem]) -> list[RenameStep]:
@@ -118,8 +118,7 @@ def _apply_one(item: RenamePlanItem) -> tuple[Path, Path]:
     old_source = item.source
 
     # Smart mode: rename the existing dedicated folder first, then rename the
-    # FFPFSC inside it. If the file rename fails, try to restore the old folder
-    # name so the operation does not leave a half-applied layout.
+    # FFPFSC inside it. If the file rename fails, restore the old folder name.
     if item.source_directory is not None and item.target_directory is not None:
         source_directory = item.source_directory
         target_directory = item.target_directory
@@ -136,11 +135,14 @@ def _apply_one(item: RenamePlanItem) -> tuple[Path, Path]:
                 if item.destination.exists():
                     raise FileExistsError(item.destination)
                 moved_source.rename(item.destination)
-        except Exception:
+        except Exception as exc:
             try:
                 target_directory.rename(source_directory)
-            except OSError:
-                pass
+            except OSError as rollback_exc:
+                raise RenameTransactionError(
+                    "Smart-folder rename failed and the original folder name could not be restored. "
+                    f"Rename error: {exc}. Rollback error: {rollback_exc}"
+                ) from exc
             raise
 
         return old_source, item.destination
@@ -154,11 +156,14 @@ def _apply_one(item: RenamePlanItem) -> tuple[Path, Path]:
         item.target_directory.mkdir(parents=False, exist_ok=False)
         try:
             item.source.rename(item.destination)
-        except Exception:
+        except Exception as exc:
             try:
                 item.target_directory.rmdir()
-            except OSError:
-                pass
+            except OSError as rollback_exc:
+                raise RenameTransactionError(
+                    "File move failed and the newly-created target folder could not be removed. "
+                    f"Move error: {exc}. Cleanup error: {rollback_exc}"
+                ) from exc
             raise
         return old_source, item.destination
 
@@ -203,7 +208,7 @@ def apply_rename_plan(plan: list[RenamePlanItem]) -> list[tuple[Path, Path]]:
                 )
             except Exception as rollback_exc:
                 raise RenameTransactionError(
-                    "Rename failed and automatic rollback was incomplete. "
+                    "Rename failed and automatic rollback of earlier completed entries was incomplete. "
                     f"Original error: {exc}. Rollback error: {rollback_exc}"
                 ) from exc
             raise
