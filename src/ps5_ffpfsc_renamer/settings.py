@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
-SETTINGS_SCHEMA_VERSION = 2
+SETTINGS_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +24,7 @@ class AppSettings:
     component_order: tuple[str, ...] = ("title_id", "title", "version")
     result_filter: str = "ALL"
     window_geometry: str | None = None
+    mkpfs_path: str | None = None
 
 
 def default_settings_path() -> Path:
@@ -81,8 +82,20 @@ def _safe_component_order(value: object) -> tuple[str, ...]:
     return tuple(result)
 
 
+def _safe_optional_path(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return str(Path(text).expanduser().resolve(strict=False))
+    except OSError:
+        return str(Path(text).expanduser().absolute())
+
+
 def load_settings(settings_path: Path | None = None) -> AppSettings:
-    """Load settings defensively, including migration from schema v1."""
+    """Load settings defensively, including migration from older schemas."""
     path = settings_path or default_settings_path()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -138,13 +151,18 @@ def load_settings(settings_path: Path | None = None) -> AppSettings:
             if isinstance(data.get("window_geometry"), str)
             else None
         ),
+        mkpfs_path=_safe_optional_path(data.get("mkpfs_path")),
     )
 
 
 def save_settings(settings: AppSettings, settings_path: Path | None = None) -> Path:
     path = settings_path or default_settings_path()
     normalized_roots = tuple(str(item) for item in _dedupe_paths(settings.library_roots))
-    normalized = replace(settings, library_roots=normalized_roots)
+    normalized = replace(
+        settings,
+        library_roots=normalized_roots,
+        mkpfs_path=_safe_optional_path(settings.mkpfs_path),
+    )
     payload = asdict(normalized)
     payload["schema_version"] = SETTINGS_SCHEMA_VERSION
     payload["library_roots"] = list(normalized.library_roots)
