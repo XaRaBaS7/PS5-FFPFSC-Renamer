@@ -1,6 +1,6 @@
 """Compatibility entry point for the current desktop interface."""
 
-from .gui_v5 import RenamerApp, main
+from .gui_v6 import RenamerApp, main
 
 __all__ = ["RenamerApp", "main"]
 
