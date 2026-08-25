@@ -20,11 +20,13 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e . "mkpfs==0.0.9" pyinstaller
+          python -m pip install -e ".[dev]" "mkpfs==0.0.9" pyinstaller
 
-      - name: Run tests
+      - name: Compile and test
         shell: pwsh
-        run: pytest -q
+        run: |
+          python -m compileall -q src tools
+          pytest -q
 
       - name: Build MkPFS helper
         shell: pwsh
@@ -54,7 +56,7 @@ jobs:
           Copy-Item ".\README.md" "$app\README.md"
           Copy-Item ".\LICENSE" "$app\LICENSE"
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
-          if (Test-Path ".\CHANGELOG.md") { Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md" }
+          Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
 
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
