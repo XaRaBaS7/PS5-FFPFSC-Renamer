@@ -2,6 +2,76 @@
 
 All notable changes to PS5 FFPFSC Renamer are documented here.
 
+## [0.4.0] - 2026-08-25
+
+### Smart Library
+
+- Optional **Live Library Watch** for selected roots with 15/30/60/120 second intervals.
+- Live Watch checks only path, size and modification time; MkPFS is launched only after a real library change triggers a scan.
+- Live Watch reports **Added / Removed / Modified** changes separately in the Activity Log.
+- Temporarily unavailable drives are reported without clearing or corrupting the current library view.
+- Live Watch is disabled by default so archival HDDs are not woken unnecessarily.
+
+### Game Details
+
+- New collapsible **Game details** workspace linked to the selected result row.
+- Selective MkPFS extraction of only `sce_sys/param.json` and `sce_sys/icon0.png` rather than the full FFPFSC payload.
+- Details view shows icon, title, Title ID/PPSA, content version, master version, FFPFSC size, Renamer status, data source and path.
+- Raw formatted `param.json` tab with clipboard copy.
+- Detail loading is asynchronous, debounced and cancellable so quickly moving through the results does not keep obsolete disk reads running.
+- Dedicated details/artwork cache under App Data.
+- Cache Manager reports details-cache entry count, valid/stale entries and disk usage, with prune and clear actions.
+- Details cache is migrated after Rename **and Undo** instead of forcing a new selective extraction.
+- Multi-selection shows an in-memory summary (count, total size, unique Title IDs and status distribution) without invoking MkPFS.
+
+### Naming
+
+- Reusable **Naming Profiles** that can be applied without rescanning the library.
+- Bundled profiles for PPSA-only compatibility, PPSA + Title, Title + PPSA, full archive naming and Title + Version + PPSA.
+- User-created profiles are stored persistently in App Data and can be updated or deleted.
+- Custom filename separator support, persisted with the rest of the builder configuration and included in profiles.
+
+### Insights & maintenance
+
+- New **Library Statistics** window generated entirely from current in-memory results.
+- Shows file count, total/average known size, unique Title IDs, duplicate groups, status distribution, largest games and details-cache usage.
+- New details-cache statistics/pruning helpers and tests.
+- Operation History now explicitly closes each SQLite connection after use, preventing lingering Windows handles on the journal database.
+
+### Rename safety
+
+- New **Tools → Rename safety self-test...** runs real filesystem rename tests only against disposable temporary `.ffpfsc` files.
+- The self-test covers File-only rename/Undo, Smart loose-file organization/Undo, Smart existing-folder rename/Undo, collision protection and late-batch-collision rollback.
+- Temporary self-test payloads are SHA-256 checked before/after to verify that rename operations do not alter their bytes.
+- Generated rename operations perform a fresh **pre-flight** immediately before filesystem mutation, catching destinations that appeared after the original preview.
+- Rename confirmation shows READY count, represented data size, file path changes, folders to create/rename and blocked rows.
+- Successful generated renames receive fast **post-rename identity verification** using file size plus filesystem device/file ID when available, with lightweight sampled-fingerprint fallback.
+- Pre-flight, post-verification, transactional rollback and persistent Ctrl+Z Undo form separate safety layers.
+- Automatic tests exercise the temporary-filesystem self-test and pre-flight/post-verification logic on Windows CI.
+
+### Documentation & quality
+
+- README contains a versioned application Preview near the top of the document.
+- Added `docs/SCREENSHOT_POLICY.md` and an automated CI check: visible GUI changes must refresh the canonical README preview before merge.
+- Final v0.4 preview reflects Smart Library, Live Watch, Naming Profiles, Game Details and rename-safety state.
+- README Credits distinguish runtime dependencies, build tools and related/inspiration projects.
+- Expanded test coverage for Smart Library settings, Live Watch snapshots, Game Details cache/migration, naming profiles, custom separators, library statistics, rename safety and the canonical GUI entrypoint.
+
+### Performance
+
+- Game artwork/JSON is loaded on demand instead of during the main scan.
+- Cached details survive Rename and Undo through cache-key migration.
+- Batch/multi-selection inspection never starts unnecessary MkPFS processes.
+- Existing SQLite verified/failure caching, batch lookups and iterative `os.scandir()` discovery remain active.
+- Post-rename verification uses filesystem identity when available rather than hashing complete multi-gigabyte images.
+
+### Safety
+
+- All v0.3 transactional rename, collision, Undo and selected-root protections remain in force.
+- FFPFSC contents are never rewritten or recompressed by these features.
+- Late destination collisions are blocked by the fresh pre-flight instead of relying only on the earlier UI preview.
+- Runtime batch failures still trigger rollback of already-completed steps.
+
 ## [0.3.1] - 2026-08-25
 
 ### Fixed
@@ -23,7 +93,7 @@ All notable changes to PS5 FFPFSC Renamer are documented here.
 ### Changed
 
 - Moved the source-development launcher from root `RUN.bat` to `tools\dev\RUN_DEV.bat` so the repository root better reflects the packaged end-user experience.
-- README now clearly distinguishes development files from the standalone Windows release package.
+- README clearly distinguishes development files from the standalone Windows release package.
 
 ## [0.3.0] - 2026-08-25
 

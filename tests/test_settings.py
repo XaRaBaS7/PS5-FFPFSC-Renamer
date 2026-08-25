@@ -57,6 +57,7 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
         version_prefix=False,
         folder_mode="File only",
         component_order=("title", "version", "title_id"),
+        filename_separator="__",
         result_filter="DUPLICATES",
         window_geometry="1440x900+10+20",
         mkpfs_path=str(mkpfs),
@@ -68,6 +69,8 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
         remember_window_geometry=False,
         show_relative_paths=False,
         auto_prune_cache=True,
+        watch_library=True,
+        watch_interval_seconds=60,
     )
 
     save_settings(expected, path)
@@ -77,6 +80,7 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
     assert loaded.recursive is False
     assert loaded.worker == "4 (SSD / NVMe)"
     assert loaded.component_order == ("title", "version", "title_id")
+    assert loaded.filename_separator == "__"
     assert loaded.result_filter == "DUPLICATES"
     assert loaded.window_geometry == "1440x900+10+20"
     assert loaded.mkpfs_path == str(mkpfs.resolve())
@@ -88,6 +92,23 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
     assert loaded.remember_window_geometry is False
     assert loaded.show_relative_paths is False
     assert loaded.auto_prune_cache is True
+    assert loaded.watch_library is True
+    assert loaded.watch_interval_seconds == 60
+
+
+def test_watch_interval_is_normalized_to_supported_values(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    save_settings(AppSettings(watch_interval_seconds=47), path)
+    loaded = load_settings(path)
+
+    assert loaded.watch_interval_seconds == 60
+
+
+def test_unsafe_filename_separator_falls_back(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    save_settings(AppSettings(filename_separator="/"), path)
+    loaded = load_settings(path)
+    assert loaded.filename_separator == " - "
 
 
 def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
@@ -101,6 +122,9 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
             sort_column="title",
             sort_descending=True,
             autoscan_on_start=False,
+            filename_separator="_",
+            watch_library=True,
+            watch_interval_seconds=120,
         ),
         path,
     )
@@ -116,6 +140,9 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     assert loaded.sort_column == "title"
     assert loaded.sort_descending is True
     assert loaded.autoscan_on_start is False
+    assert loaded.filename_separator == "_"
+    assert loaded.watch_library is True
+    assert loaded.watch_interval_seconds == 120
 
 
 def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
@@ -140,6 +167,9 @@ def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
     assert loaded.remember_window_geometry is True
     assert loaded.show_relative_paths is True
     assert loaded.auto_prune_cache is False
+    assert loaded.filename_separator == " - "
+    assert loaded.watch_library is False
+    assert loaded.watch_interval_seconds == 30
 
 
 def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
@@ -147,9 +177,10 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     save_settings(AppSettings(), path)
     data = json.loads(path.read_text(encoding="utf-8"))
 
-    assert data["schema_version"] == 5
+    assert data["schema_version"] == 7
     assert "worker" in data
     assert "component_order" in data
+    assert "filename_separator" in data
     assert "mkpfs_path" in data
     assert "sort_column" in data
     assert "sort_descending" in data
@@ -159,3 +190,5 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     assert "remember_window_geometry" in data
     assert "show_relative_paths" in data
     assert "auto_prune_cache" in data
+    assert "watch_library" in data
+    assert "watch_interval_seconds" in data

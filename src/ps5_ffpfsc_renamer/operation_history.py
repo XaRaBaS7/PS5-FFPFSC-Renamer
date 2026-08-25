@@ -4,6 +4,7 @@ import os
 import sqlite3
 import time
 import uuid
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -53,6 +54,10 @@ class OperationHistory:
     The database stores both final old/new file pairs and the lower-level
     filesystem steps required to restore Smart-folder and newly-created-folder
     layouts safely. No file contents are copied into the journal.
+
+    Every database connection is explicitly closed after each operation. This
+    matters on Windows because an open SQLite/WAL handle can keep a history
+    database locked even after the transaction itself has committed.
     """
 
     def __init__(self, db_path: Path | None = None) -> None:
@@ -68,7 +73,7 @@ class OperationHistory:
         return connection
 
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS transactions (
@@ -117,7 +122,7 @@ class OperationHistory:
 
         transaction_id = uuid.uuid4().hex
         created_at = int(time.time())
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 "INSERT INTO transactions(transaction_id, created_at, label, item_count, undone_at) "
                 "VALUES (?, ?, ?, ?, NULL)",
@@ -148,7 +153,7 @@ class OperationHistory:
         return transaction_id
 
     def _load_transaction(self, transaction_id: str) -> HistoryTransaction | None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             transaction = connection.execute(
                 "SELECT * FROM transactions WHERE transaction_id = ?",
                 (transaction_id,),
@@ -186,7 +191,7 @@ class OperationHistory:
 
     def recent(self, limit: int = 50) -> list[HistoryTransaction]:
         limit = max(1, min(int(limit), 500))
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             ids = [
                 row["transaction_id"]
                 for row in connection.execute(
@@ -203,7 +208,7 @@ class OperationHistory:
         return result
 
     def last_undoable(self) -> HistoryTransaction | None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             row = connection.execute(
                 "SELECT transaction_id FROM transactions WHERE undone_at IS NULL "
                 "ORDER BY created_at DESC, rowid DESC LIMIT 1"
@@ -289,7 +294,7 @@ class OperationHistory:
             raise HistoryError(f"Undo failed; original state was restored: {exc}") from exc
 
         undone_at = int(time.time())
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 "UPDATE transactions SET undone_at = ? WHERE transaction_id = ?",
                 (undone_at, transaction.transaction_id),
@@ -303,12 +308,12 @@ class OperationHistory:
         )
 
     def clear(self) -> None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute("DELETE FROM transaction_steps")
             connection.execute("DELETE FROM transaction_pairs")
             connection.execute("DELETE FROM transactions")
 
     def count(self) -> int:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             row = connection.execute("SELECT COUNT(*) AS count FROM transactions").fetchone()
         return int(row["count"] if row is not None else 0)
