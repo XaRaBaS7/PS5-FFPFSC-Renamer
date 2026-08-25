@@ -21,7 +21,7 @@ from .theme import COLORS
 
 
 class RenamerApp(RenamerAppV11):
-    """v0.3.1 desktop shell with silent MkPFS and an integrated activity log."""
+    """v0.3.1 desktop shell with silent MkPFS, richer progress and activity logging."""
 
     def __init__(self) -> None:
         self._activity_log = ActivityLog()
@@ -29,9 +29,100 @@ class RenamerApp(RenamerAppV11):
         self._log_body: ttk.Frame | None = None
         self._log_toggle_button: ttk.Button | None = None
         self._log_visible = True
+        self._activity_progress: ttk.Progressbar | None = None
+        self._overall_progress_text: tk.StringVar | None = None
+        self._activity_text: tk.StringVar | None = None
         super().__init__()
         self._log("INFO", f"PS5 FFPFSC Renamer v{__version__} started")
         self._log("ENGINE", mkpfs_source_description())
+
+    # ------------------------------------------------------- progress panel
+    def _build_progress(self, parent: ttk.Frame) -> None:
+        """Two-level progress: real library percentage plus current activity."""
+        card = ttk.Frame(parent, style="Card.TFrame", padding=(12, 8))
+        card.pack(fill="x", pady=(8, 0))
+
+        top = ttk.Frame(card, style="Card.TFrame")
+        top.pack(fill="x")
+        ttk.Label(top, text="Analysis", style="CardTitle.TLabel").pack(side="left")
+        ttk.Label(
+            top,
+            textvariable=self.progress_detail_var,
+            style="CardInfo.TLabel",
+        ).pack(side="left", padx=(10, 0))
+        self.cancel_button = ttk.Button(
+            top,
+            text="Cancel",
+            style="Danger.TButton",
+            command=self._cancel_scan,
+            state="disabled",
+        )
+        self.cancel_button.pack(side="right")
+
+        overall_row = ttk.Frame(card, style="Card.TFrame")
+        overall_row.pack(fill="x", pady=(6, 2))
+        ttk.Label(overall_row, text="Overall scan", style="CardMuted.TLabel").pack(side="left")
+        self._overall_progress_text = tk.StringVar(value="Idle")
+        ttk.Label(
+            overall_row,
+            textvariable=self._overall_progress_text,
+            style="CardMuted.TLabel",
+        ).pack(side="right")
+
+        ttk.Progressbar(
+            card,
+            variable=self.progress_var,
+            maximum=100,
+            mode="determinate",
+            style="Scan.Horizontal.TProgressbar",
+        ).pack(fill="x")
+
+        activity_row = ttk.Frame(card, style="Card.TFrame")
+        activity_row.pack(fill="x", pady=(6, 2))
+        ttk.Label(activity_row, text="Current activity", style="CardMuted.TLabel").pack(side="left")
+        self._activity_text = tk.StringVar(value="Waiting")
+        ttk.Label(
+            activity_row,
+            textvariable=self._activity_text,
+            style="CardInfo.TLabel",
+        ).pack(side="right")
+
+        self._activity_progress = ttk.Progressbar(
+            card,
+            maximum=100,
+            mode="indeterminate",
+            style="Activity.Horizontal.TProgressbar",
+        )
+        self._activity_progress.pack(fill="x")
+
+        ttk.Label(
+            card,
+            textvariable=self.progress_note_var,
+            style="CardMuted.TLabel",
+            wraplength=1050,
+            justify="left",
+        ).pack(fill="x", pady=(4, 0))
+
+    def _set_activity(self, active: bool, text: str) -> None:
+        if self._activity_text is not None:
+            self._activity_text.set(text)
+        if self._activity_progress is None:
+            return
+        try:
+            if active:
+                self._activity_progress.start(12)
+            else:
+                self._activity_progress.stop()
+        except tk.TclError:
+            pass
+
+    def _set_overall_text(self, completed: int, total: int) -> None:
+        if self._overall_progress_text is None:
+            return
+        percent = (completed / total * 100.0) if total else 0.0
+        self._overall_progress_text.set(
+            f"{completed}/{total} • {percent:.0f}%" if total else "0/0"
+        )
 
     # ---------------------------------------------------------- log panel
     def _build_footer(self, parent: ttk.Frame) -> None:
@@ -117,8 +208,6 @@ class RenamerApp(RenamerAppV11):
             return
         self._log_text.configure(state="normal")
         self._log_text.insert("end", line + "\n", level if level in self._log_text.tag_names() else "INFO")
-        # Keep the UI bounded even after very long sessions. The persistent log
-        # on disk keeps a larger rolling history.
         try:
             line_count = int(self._log_text.index("end-1c").split(".")[0])
             if line_count > 800:
@@ -173,10 +262,28 @@ class RenamerApp(RenamerAppV11):
                 "INFO",
                 f"Scan requested: {len(roots)} root(s), recursive={bool(self.recursive_var.get())}, workers={self.worker_var.get()}",
             )
+            self._set_activity(True, "Discovering files / checking metadata cache")
+            if self._overall_progress_text is not None:
+                self._overall_progress_text.set("Starting...")
         super()._scan()
+
+    def _cache_check_progress(self, checked: int, total: int, hits: int, new: int) -> None:
+        super()._cache_check_progress(checked, total, hits, new)
+        if self._activity_text is not None:
+            self._activity_text.set(f"Cache check {checked}/{total} • hits {hits} • new/changed {new}")
+        if self._overall_progress_text is not None:
+            self._overall_progress_text.set(f"Preparing scan • checked {checked}/{total}")
 
     def _analysis_started(self, total: int, cache_hits: int, misses: int, workers: int) -> None:
         super()._analysis_started(total, cache_hits, misses, workers)
+        self._set_overall_text(cache_hits, total)
+        if misses:
+            self._set_activity(
+                True,
+                f"MkPFS active • {misses} file(s) pending • {workers} worker(s)",
+            )
+        else:
+            self._set_activity(False, "All files resolved from cache")
         self._log(
             "CACHE",
             f"Discovery complete: {total} file(s), {cache_hits} cache hit(s), {misses} MkPFS read(s), {workers} worker(s)",
@@ -201,6 +308,11 @@ class RenamerApp(RenamerAppV11):
             cache_hits,
             mkpfs_reads,
         )
+        self._set_overall_text(completed, total)
+        if workers == 1:
+            self._set_activity(True, f"MkPFS • last completed: {last_name}")
+        else:
+            self._set_activity(True, f"MkPFS • {workers} workers • last completed: {last_name}")
         self._log("MKPFS", f"Processed {last_name} ({completed}/{total})")
 
     def _scan_complete(
@@ -222,6 +334,8 @@ class RenamerApp(RenamerAppV11):
             cache_hits,
             mkpfs_reads,
         )
+        self._set_overall_text(total, total)
+        self._set_activity(False, "Complete")
         partial_count = len(getattr(self, "partial_items", []))
         hard_errors = len(getattr(self, "scan_errors", []))
         level = "WARN" if partial_count or hard_errors else "OK"
@@ -231,10 +345,13 @@ class RenamerApp(RenamerAppV11):
         )
 
     def _scan_failed(self, detail: str) -> None:
+        self._set_activity(False, "Stopped — error")
         self._log("ERROR", f"Scan failed: {detail}")
         super()._scan_failed(detail)
 
     def _scan_cancelled(self, completed: int, total: int) -> None:
+        self._set_overall_text(completed, total)
+        self._set_activity(False, "Cancelled")
         self._log("WARN", f"Scan cancelled after {completed}/{total} file(s)")
         super()._scan_cancelled(completed, total)
 
