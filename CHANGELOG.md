@@ -2,7 +2,7 @@
 
 All notable changes to PS5 FFPFSC Renamer are documented here.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-08-25
 
 ### Added
 
