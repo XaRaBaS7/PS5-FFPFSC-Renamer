@@ -68,6 +68,8 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
         remember_window_geometry=False,
         show_relative_paths=False,
         auto_prune_cache=True,
+        watch_library=True,
+        watch_interval_seconds=60,
     )
 
     save_settings(expected, path)
@@ -88,6 +90,16 @@ def test_complete_settings_round_trip(tmp_path: Path) -> None:
     assert loaded.remember_window_geometry is False
     assert loaded.show_relative_paths is False
     assert loaded.auto_prune_cache is True
+    assert loaded.watch_library is True
+    assert loaded.watch_interval_seconds == 60
+
+
+def test_watch_interval_is_normalized_to_supported_values(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    save_settings(AppSettings(watch_interval_seconds=47), path)
+    loaded = load_settings(path)
+
+    assert loaded.watch_interval_seconds == 60
 
 
 def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
@@ -101,6 +113,8 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
             sort_column="title",
             sort_descending=True,
             autoscan_on_start=False,
+            watch_library=True,
+            watch_interval_seconds=120,
         ),
         path,
     )
@@ -116,6 +130,8 @@ def test_updating_roots_preserves_other_preferences(tmp_path: Path) -> None:
     assert loaded.sort_column == "title"
     assert loaded.sort_descending is True
     assert loaded.autoscan_on_start is False
+    assert loaded.watch_library is True
+    assert loaded.watch_interval_seconds == 120
 
 
 def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
@@ -140,6 +156,8 @@ def test_schema_v1_migrates_without_failure(tmp_path: Path) -> None:
     assert loaded.remember_window_geometry is True
     assert loaded.show_relative_paths is True
     assert loaded.auto_prune_cache is False
+    assert loaded.watch_library is False
+    assert loaded.watch_interval_seconds == 30
 
 
 def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
@@ -147,7 +165,7 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     save_settings(AppSettings(), path)
     data = json.loads(path.read_text(encoding="utf-8"))
 
-    assert data["schema_version"] == 5
+    assert data["schema_version"] == 6
     assert "worker" in data
     assert "component_order" in data
     assert "mkpfs_path" in data
@@ -159,3 +177,5 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     assert "remember_window_geometry" in data
     assert "show_relative_paths" in data
     assert "auto_prune_cache" in data
+    assert "watch_library" in data
+    assert "watch_interval_seconds" in data
