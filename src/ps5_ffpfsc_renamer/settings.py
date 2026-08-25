@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
-SETTINGS_SCHEMA_VERSION = 4
+SETTINGS_SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +27,15 @@ class AppSettings:
     mkpfs_path: str | None = None
     sort_column: str = "file"
     sort_descending: bool = False
+
+    # v0.3 desktop behavior. These defaults intentionally make a restored
+    # library useful immediately without forcing the user to Browse again.
+    autoscan_on_start: bool = True
+    autoscan_on_browse: bool = True
+    autoscan_on_add_folder: bool = True
+    remember_window_geometry: bool = True
+    show_relative_paths: bool = True
+    auto_prune_cache: bool = False
 
 
 def default_settings_path() -> Path:
@@ -96,6 +105,11 @@ def _safe_optional_path(value: object) -> str | None:
         return str(Path(text).expanduser().absolute())
 
 
+def _bool_setting(data: dict[str, object], key: str, default: bool) -> bool:
+    value = data.get(key)
+    return value if isinstance(value, bool) else default
+
+
 def load_settings(settings_path: Path | None = None) -> AppSettings:
     """Load settings defensively, including migration from older schemas."""
     path = settings_path or default_settings_path()
@@ -107,40 +121,32 @@ def load_settings(settings_path: Path | None = None) -> AppSettings:
         return AppSettings()
 
     roots_raw = data.get("library_roots", [])
-    roots = tuple(
-        str(path)
-        for path in _dedupe_paths(
-            value for value in roots_raw if isinstance(value, str)
+    roots = (
+        tuple(
+            str(path)
+            for path in _dedupe_paths(
+                value for value in roots_raw if isinstance(value, str)
+            )
         )
-    ) if isinstance(roots_raw, list) else ()
+        if isinstance(roots_raw, list)
+        else ()
+    )
 
     defaults = AppSettings()
     return AppSettings(
         library_roots=roots,
-        recursive=data.get("recursive") if isinstance(data.get("recursive"), bool) else defaults.recursive,
+        recursive=_bool_setting(data, "recursive", defaults.recursive),
         worker=data.get("worker") if isinstance(data.get("worker"), str) else defaults.worker,
         preset=data.get("preset") if isinstance(data.get("preset"), str) else defaults.preset,
-        include_title_id=(
-            data.get("include_title_id")
-            if isinstance(data.get("include_title_id"), bool)
-            else defaults.include_title_id
-        ),
-        include_title=data.get("include_title") if isinstance(data.get("include_title"), bool) else defaults.include_title,
-        include_version=(
-            data.get("include_version")
-            if isinstance(data.get("include_version"), bool)
-            else defaults.include_version
-        ),
+        include_title_id=_bool_setting(data, "include_title_id", defaults.include_title_id),
+        include_title=_bool_setting(data, "include_title", defaults.include_title),
+        include_version=_bool_setting(data, "include_version", defaults.include_version),
         version_format=(
             data.get("version_format")
             if isinstance(data.get("version_format"), str)
             else defaults.version_format
         ),
-        version_prefix=(
-            data.get("version_prefix")
-            if isinstance(data.get("version_prefix"), bool)
-            else defaults.version_prefix
-        ),
+        version_prefix=_bool_setting(data, "version_prefix", defaults.version_prefix),
         folder_mode=data.get("folder_mode") if isinstance(data.get("folder_mode"), str) else defaults.folder_mode,
         component_order=_safe_component_order(data.get("component_order")),
         result_filter=(
@@ -159,11 +165,17 @@ def load_settings(settings_path: Path | None = None) -> AppSettings:
             if isinstance(data.get("sort_column"), str)
             else defaults.sort_column
         ),
-        sort_descending=(
-            data.get("sort_descending")
-            if isinstance(data.get("sort_descending"), bool)
-            else defaults.sort_descending
+        sort_descending=_bool_setting(data, "sort_descending", defaults.sort_descending),
+        autoscan_on_start=_bool_setting(data, "autoscan_on_start", defaults.autoscan_on_start),
+        autoscan_on_browse=_bool_setting(data, "autoscan_on_browse", defaults.autoscan_on_browse),
+        autoscan_on_add_folder=_bool_setting(
+            data, "autoscan_on_add_folder", defaults.autoscan_on_add_folder
         ),
+        remember_window_geometry=_bool_setting(
+            data, "remember_window_geometry", defaults.remember_window_geometry
+        ),
+        show_relative_paths=_bool_setting(data, "show_relative_paths", defaults.show_relative_paths),
+        auto_prune_cache=_bool_setting(data, "auto_prune_cache", defaults.auto_prune_cache),
     )
 
 
