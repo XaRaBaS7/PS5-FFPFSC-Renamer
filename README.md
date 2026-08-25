@@ -2,7 +2,16 @@
 
 Windows utility for scanning PS5 `.ffpfsc` libraries, reading game metadata, previewing safe output names and renaming files/folders without rewriting the FFPFSC payload.
 
-> **Current version: v0.3.1**
+> **Current stable release: v0.3.1**  
+> **Current development line: v0.4 Smart Library**
+
+## Preview
+
+<p align="center">
+  <img src="docs/screenshots/app-preview.svg" alt="PS5 FFPFSC Renamer interface preview" width="100%">
+</p>
+
+> The preview is versioned with the source code. Any visible GUI change must update this image before it can be merged. See [`docs/SCREENSHOT_POLICY.md`](docs/SCREENSHOT_POLICY.md).
 
 ## Highlights
 
@@ -13,7 +22,7 @@ Windows utility for scanning PS5 `.ffpfsc` libraries, reading game metadata, pre
 - Central **Options** window for startup, scan/performance, naming, cache and MkPFS settings.
 - Read internal `sce_sys/param.json` through MkPFS when supported.
 - Persistent SQLite metadata cache for very fast repeat scans.
-- Cache unchanged MkPFS failures too, so persistent `PARTIAL` / `ERROR` files are not re-read unnecessarily.
+- Cache unchanged MkPFS failures so persistent `PARTIAL` / `ERROR` files are not re-read unnecessarily.
 - Reorder filename components freely: **PPSA / Title ID**, **Game title**, **Version**.
 - Search, filter and sort large libraries.
 - File-size display without reading the whole image.
@@ -32,27 +41,21 @@ Windows utility for scanning PS5 `.ffpfsc` libraries, reading game metadata, pre
 
 ## Windows quick start
 
-### Packaged release — recommended
-
-Download the Windows ZIP from GitHub **Releases**, extract the complete folder, then run:
+Download the latest Windows ZIP from GitHub **Releases**, extract the complete folder and run:
 
 ```text
 PS5-FFPFSC-Renamer.exe
 ```
 
-Keep `mkpfs-helper.exe` next to the main executable. The packaged release does not require a separate Python installation.
-
-The end-user package does **not** need `.venv`, `src`, `tests`, `.github`, `pyproject.toml` or development launchers.
-
-### Development checkout
-
-For source development use:
+Keep this helper next to the application:
 
 ```text
-tools\dev\RUN_DEV.bat
+mkpfs-helper.exe
 ```
 
-The development launcher creates `.venv`, installs the project and the tested `MkPFS 0.0.9`, then starts the GUI.
+The packaged Windows release does not require a separate Python installation.
+
+Development-only files such as `.venv`, `src`, `tests`, `.github`, `pyproject.toml` and development launchers are not required by end users.
 
 ## Library workflow
 
@@ -61,7 +64,7 @@ The development launcher creates `.venv`, installs the project and the tested `M
 3. Use **Folders (N)...** to review or remove roots.
 4. Saved roots can be restored and scanned automatically on later launches.
 5. Use **Scan now / F5** whenever you want a manual refresh.
-6. Review metadata and proposed output.
+6. Review detected metadata and proposed output.
 7. Change filename order, preset or folder handling without rescanning.
 8. Apply the rename plan only after reviewing it.
 
@@ -71,10 +74,10 @@ Selected library roots are protected: Smart mode never renames the root itself.
 
 The Analysis area contains two progress indicators:
 
-- **Overall scan** — real determinate progress across the whole library.
-- **Current activity** — animated while file discovery, cache checks or MkPFS work is active.
+- **Overall scan** — real determinate progress across the entire library.
+- **Current activity** — animated while discovery, cache checks or MkPFS work is active.
 
-MkPFS does not expose a trustworthy per-file percentage for this selective metadata extraction path, so PS5 FFPFSC Renamer deliberately does not invent one.
+MkPFS does not expose a trustworthy per-file percentage for selective metadata extraction, so PS5 FFPFSC Renamer deliberately does not invent one.
 
 Typical log output:
 
@@ -85,7 +88,7 @@ Typical log output:
 [17:24:22] [OK] Scan complete: 126 file(s), cache 117, MkPFS 9, PARTIAL 0, ERROR 0
 ```
 
-The Activity Log can be hidden/shown, copied or cleared. A rolling persistent log is stored here:
+The Activity Log can be hidden/shown, copied or cleared. A rolling persistent log is stored in:
 
 ```text
 %LOCALAPPDATA%\PS5-FFPFSC-Renamer\activity.log
@@ -109,7 +112,7 @@ The **Options** window groups advanced configuration without crowding the main l
 
 - include subfolders;
 - worker count (`1`, `2`, `4`, `Auto`);
-- optional pruning of cache records for files that no longer exist.
+- optional pruning of cache records for missing files.
 
 Recommended workers:
 
@@ -118,7 +121,7 @@ Recommended workers:
 - **4 (SSD / NVMe)** — faster solid-state storage;
 - **Auto** — conservative automatic choice.
 
-GPU acceleration and CPU affinity are intentionally not used for metadata scanning because this workflow is primarily storage-bound and extracts only a very small metadata file.
+GPU acceleration and CPU affinity are intentionally not used for metadata scanning because this workflow is primarily storage-bound and only extracts very small metadata files.
 
 ### Naming
 
@@ -135,7 +138,7 @@ GPU acceleration and CPU affinity are intentionally not used for metadata scanni
 - current MkPFS source;
 - MkPFS Engine Manager / custom compatible executable.
 
-Settings are stored here:
+Settings are stored in:
 
 ```text
 %LOCALAPPDATA%\PS5-FFPFSC-Renamer\settings.json
@@ -155,7 +158,7 @@ Fast cache matching uses:
 normalized path + file size + modification timestamp
 ```
 
-For moved/renamed files or duplicate hints, the app can use a lightweight quick fingerprint based on:
+For moved/renamed files or duplicate hints, the application can use a lightweight quick fingerprint based on:
 
 ```text
 file size + small samples from beginning + middle + end
@@ -260,14 +263,14 @@ DUPLICATES
 - **UNCHANGED** — file/output already match.
 - **COLLISION** — the target conflicts with another item or existing filesystem object.
 - **INVALID** — a safety rule blocks the operation.
-- **PARTIAL** — metadata could not be verified internally, but PPSA/title was inferred from path; automatic rename stays disabled.
+- **PARTIAL** — metadata could not be verified internally, but PPSA/title was inferred from the path; automatic rename stays disabled.
 - **ERROR** — metadata could not be read and no safe fallback was available.
 
 Hover the Status cell for a concise explanation.
 
 ## Right-click actions
 
-Single row actions include:
+Single-row actions include:
 
 - Rename using current plan
 - Rename file manually
@@ -318,11 +321,11 @@ mkpfs unpack game.ffpfsc temp-dir --deep --only sce_sys/param.json --no-progress
 
 For an image that fails this path, **Run diagnostics** performs read-only `inspect` and `tree --deep` checks.
 
-This helps distinguish cases such as wrapped exFAT not detected, direct/raw layouts, truncated images and parser limitations. A `no inner exFAT` result does not by itself prove corruption.
+This helps distinguish wrapped exFAT not detected, direct/raw layouts, truncated images and parser limitations. A `no inner exFAT` result does not by itself prove corruption.
 
 ## Performance
 
-Repeat scans are faster through:
+Repeat scans are accelerated through:
 
 - verified metadata cache;
 - cached unchanged MkPFS failures;
@@ -335,7 +338,7 @@ With multiple roots, an unavailable drive/folder can be skipped while other avai
 ## Safety principles
 
 - Rename operations never rewrite or recompress FFPFSC contents.
-- Automatic rename plans use only internally verified metadata or cache entries originally created from verified metadata.
+- Automatic rename plans use only internally verified metadata or cache records originally created from verified metadata.
 - Path-derived `PARTIAL` metadata is display-only.
 - Existing destination files/folders are not overwritten or merged automatically.
 - Selected library roots are never renamed by Smart mode.
@@ -360,39 +363,41 @@ PS5 FFPFSC Renamer is its own project, but it relies on and has benefited from t
 
 ### Runtime / bundled dependencies
 
-- **MkPFS — PSBrew/MkPFS**  
-  https://github.com/PSBrew/MkPFS  
+- **[MkPFS — PSBrew/MkPFS](https://github.com/PSBrew/MkPFS)**  
   Used as the external read-only PFS/PFSC inspection and selective-extraction engine. The tested release dependency is `MkPFS 0.0.9`. MkPFS remains separately licensed under GPL-3.0.
 
-- **Send2Trash**  
-  https://github.com/arsenetar/send2trash  
+- **[Send2Trash](https://github.com/arsenetar/send2trash)**  
   Used to move files to the operating-system Recycle Bin instead of permanently deleting them.
 
 ### Build / packaging tools
 
-- **PyInstaller**  
-  https://github.com/pyinstaller/pyinstaller  
+- **[PyInstaller](https://github.com/pyinstaller/pyinstaller)**  
   Used by the Windows CI/release workflow to create standalone executables.
 
 ### Related projects and inspiration
 
 These projects are useful references in the PS5 FFPFS/PFSC tooling ecosystem. PS5 FFPFSC Renamer does **not** claim their code as its own and does not imply affiliation with their authors.
 
-- **PS5 exFAT Image Builder — kerrdec97/ps5-exfat-builder**  
-  https://github.com/kerrdec97/ps5-exfat-builder  
+- **[PS5 exFAT Image Builder — kerrdec97/ps5-exfat-builder](https://github.com/kerrdec97/ps5-exfat-builder)**  
   A useful reference for PS5 image-library workflows and desktop utility UX.
 
-- **PS5 FFPFSC PRO — KINGDKAK/PS5-FFPFSC-PRO**  
-  https://github.com/KINGDKAK/PS5-FFPFSC-PRO  
+- **[PS5 FFPFSC PRO — KINGDKAK/PS5-FFPFSC-PRO](https://github.com/KINGDKAK/PS5-FFPFSC-PRO)**  
   A related FFPFSC creation/compression utility and a useful reference for workflow and progress/log presentation.
 
-- **PS5 FFPFS CLI — bizkut/ps5-ffpfs-cli**  
-  https://github.com/bizkut/ps5-ffpfs-cli  
+- **[PS5 FFPFS CLI — bizkut/ps5-ffpfs-cli](https://github.com/bizkut/ps5-ffpfs-cli)**  
   A related command-line project whose Title ID auto-naming workflow helped validate the usefulness of metadata-driven naming.
 
-For exact third-party licensing and redistribution notes, see `THIRD_PARTY_NOTICES.md`.
+For exact third-party licensing and redistribution notes, see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Development
+
+For source development use:
+
+```text
+tools\dev\RUN_DEV.bat
+```
+
+Or manually:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -407,10 +412,10 @@ Run the GUI:
 ps5-ffpfsc-renamer-gui
 ```
 
-The Windows CI compiles the source, runs tests and builds the standalone package.
+The Windows CI compiles the source, runs tests, verifies README preview freshness and builds the standalone package.
 
 ## License
 
-PS5 FFPFSC Renamer is licensed under the **MIT License**. See `LICENSE`.
+PS5 FFPFSC Renamer is licensed under the **MIT License**. See [`LICENSE`](LICENSE).
 
-MkPFS remains separately licensed under GPL-3.0; see `THIRD_PARTY_NOTICES.md` and the source distribution bundled with Windows releases.
+MkPFS remains separately licensed under GPL-3.0; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the source distribution bundled with Windows releases.
