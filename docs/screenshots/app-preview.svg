@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
-  <rect width="1440" height="900" rx="16" fill="#0b0911"/>
-  <rect x="0" y="0" width="220" height="900" fill="#100d18"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040">
+  <rect width="1440" height="1040" rx="16" fill="#0b0911"/>
+  <rect x="0" y="0" width="220" height="1040" fill="#100d18"/>
   <text x="24" y="58" fill="#a875d6" font-family="Segoe UI,Arial" font-size="24" font-weight="700">FFPFSC</text>
   <text x="24" y="84" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="17" font-weight="700">RENAMER</text>
-  <text x="24" y="108" fill="#746c82" font-family="Segoe UI,Arial" font-size="12">v0.3.1</text>
+  <text x="24" y="108" fill="#746c82" font-family="Segoe UI,Arial" font-size="12">v0.4.0.dev1</text>
   <text x="24" y="160" fill="#746c82" font-family="Segoe UI,Arial" font-size="12">WORKSPACE</text>
   <rect x="0" y="174" width="220" height="48" fill="#241632"/>
   <text x="28" y="204" fill="#c08ce8" font-family="Segoe UI,Arial" font-size="14" font-weight="700">▣  Library</text>
@@ -16,15 +16,18 @@
   <text x="34" y="452" fill="#d7d1e1" font-family="Segoe UI,Arial" font-size="13" font-weight="700">Metadata DB</text>
   <text x="34" y="486" fill="#a875d6" font-family="Segoe UI,Arial" font-size="24" font-weight="700">127</text>
   <text x="34" y="508" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="11">cached file records</text>
+
   <text x="242" y="60" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="32" font-weight="700">Library Renamer</text>
   <text x="242" y="88" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="13">Cached metadata, safe output templates, collision checks and explicit rename confirmation.</text>
+
   <g font-family="Segoe UI,Arial">
     <rect x="242" y="118" width="270" height="88" fill="#1c1728" stroke="#a875d6" stroke-width="2"/><text x="260" y="154" fill="#f2eff8" font-size="27" font-weight="700">126</text><text x="260" y="182" fill="#9f97ad" font-size="11">FILES FOUND</text>
     <rect x="524" y="118" width="270" height="88" fill="#1c1728" stroke="#d8ae63" stroke-width="2"/><text x="542" y="154" fill="#f2eff8" font-size="27" font-weight="700">116</text><text x="542" y="182" fill="#9f97ad" font-size="11">FROM CACHE</text>
     <rect x="806" y="118" width="270" height="88" fill="#1c1728" stroke="#57c7a5" stroke-width="2"/><text x="824" y="154" fill="#f2eff8" font-size="27" font-weight="700">117</text><text x="824" y="182" fill="#9f97ad" font-size="11">READY</text>
     <rect x="1088" y="118" width="270" height="88" fill="#1c1728" stroke="#df6877" stroke-width="2"/><text x="1106" y="154" fill="#f2eff8" font-size="27" font-weight="700">9</text><text x="1106" y="182" fill="#9f97ad" font-size="11">BLOCKED / ERRORS</text>
   </g>
-  <rect x="242" y="220" width="500" height="206" rx="4" fill="#1c1728"/>
+
+  <rect x="242" y="220" width="500" height="194" rx="4" fill="#1c1728"/>
   <text x="260" y="250" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="16" font-weight="700">FFPFSC library</text>
   <text x="260" y="274" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="12">Browse starts scanning automatically. Add more folders to analyze them as one library.</text>
   <rect x="260" y="294" width="270" height="38" fill="#251e34" stroke="#342a48"/><text x="272" y="318" fill="#d7d1e1" font-family="Consolas" font-size="12">G:\PS5\FFPFSC</text>
@@ -32,7 +35,8 @@
   <rect x="638" y="294" width="92" height="38" fill="#251e34" stroke="#a875d6"/><text x="651" y="318" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="12">+ Add folder</text>
   <rect x="260" y="356" width="92" height="34" rx="3" fill="#251e34" stroke="#342a48"/><text x="278" y="378" fill="#d7d1e1" font-family="Segoe UI,Arial" font-size="12">Options</text>
   <rect x="610" y="350" width="120" height="42" rx="3" fill="#a875d6"/><text x="632" y="376" fill="white" font-family="Segoe UI,Arial" font-size="13" font-weight="700">Scan now  F5</text>
-  <rect x="754" y="220" width="604" height="206" rx="4" fill="#1c1728"/>
+
+  <rect x="754" y="220" width="604" height="194" rx="4" fill="#1c1728"/>
   <text x="772" y="250" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="16" font-weight="700">Filename Builder</text>
   <text x="772" y="274" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="12">Build the output name without rescanning files.</text>
   <rect x="772" y="292" width="220" height="34" fill="#251e34" stroke="#342a48"/><text x="784" y="314" fill="#d7d1e1" font-family="Segoe UI,Arial" font-size="12">PPSA only (compatible)</text>
@@ -40,17 +44,33 @@
   <rect x="772" y="350" width="164" height="40" fill="#251e34" stroke="#342a48"/><text x="786" y="375" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="12">☑ PPSA / Title ID</text>
   <rect x="946" y="350" width="154" height="40" fill="#251e34" stroke="#342a48"/><text x="962" y="375" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="12">☐ Game title</text>
   <rect x="1110" y="350" width="130" height="40" fill="#251e34" stroke="#342a48"/><text x="1126" y="375" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="12">☐ Version</text>
-  <rect x="242" y="440" width="1116" height="118" rx="4" fill="#1c1728"/>
-  <text x="260" y="468" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="15" font-weight="700">Analysis</text>
-  <text x="1250" y="468" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="12">126/126 • 100%</text>
-  <text x="260" y="492" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="11">Overall scan</text>
-  <rect x="260" y="502" width="1078" height="10" rx="5" fill="#251e34"/><rect x="260" y="502" width="1078" height="10" rx="5" fill="#a875d6"/>
-  <text x="260" y="534" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="11">Current activity</text><text x="1188" y="534" fill="#57c7a5" font-family="Segoe UI,Arial" font-size="11">Complete</text>
-  <rect x="242" y="574" width="1116" height="214" fill="#15111f" stroke="#342a48"/>
-  <rect x="242" y="574" width="1116" height="38" fill="#251e34"/>
-  <g fill="#f2eff8" font-family="Segoe UI,Arial" font-size="12" font-weight="700"><text x="270" y="598">Current file</text><text x="560" y="598">Title ID</text><text x="690" y="598">Title</text><text x="940" y="598">Version</text><text x="1048" y="598">Size</text><text x="1140" y="598">Status</text></g>
-  <g fill="#57c7a5" font-family="Segoe UI,Arial" font-size="12"><text x="260" y="640">A Plague Tale Requiem\PPSA05366.ffpfsc</text><text x="560" y="640">PPSA05366</text><text x="690" y="640">A Plague Tale: Requiem</text><text x="940" y="640">01.005.000</text><text x="1048" y="640">48.6 GB</text><text x="1140" y="640">READY</text><text x="260" y="674">Atomic Heart\PPSA10695.ffpfsc</text><text x="560" y="674">PPSA10695</text><text x="690" y="674">Atomic Heart</text><text x="940" y="674">01.011.000</text><text x="1048" y="674">48.6 GB</text><text x="1140" y="674">READY</text><text x="260" y="708">Baldur's Gate 3\PPSA18463.ffpfsc</text><text x="560" y="708">PPSA18463</text><text x="690" y="708">Baldur's Gate 3</text><text x="940" y="708">01.000.000</text><text x="1048" y="708">90.3 GB</text><text x="1140" y="708">READY</text></g>
-  <rect x="242" y="804" width="1116" height="72" rx="4" fill="#1c1728"/>
-  <text x="260" y="830" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="14" font-weight="700">Activity log</text>
-  <text x="260" y="854" fill="#57c7a5" font-family="Consolas" font-size="11">[17:24:22] [OK] Scan complete: 126 file(s), cache 117, MkPFS 9, PARTIAL 0, ERROR 0</text>
+
+  <rect x="242" y="428" width="1116" height="102" rx="4" fill="#1c1728"/>
+  <text x="260" y="456" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="15" font-weight="700">Analysis</text>
+  <text x="1250" y="456" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="12">126/126 • 100%</text>
+  <text x="260" y="480" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="11">Overall scan</text>
+  <rect x="260" y="490" width="1078" height="10" rx="5" fill="#251e34"/><rect x="260" y="490" width="1078" height="10" rx="5" fill="#a875d6"/>
+  <text x="260" y="520" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="11">Current activity</text><text x="1188" y="520" fill="#57c7a5" font-family="Segoe UI,Arial" font-size="11">Complete</text>
+
+  <rect x="242" y="544" width="1116" height="158" fill="#15111f" stroke="#342a48"/>
+  <rect x="242" y="544" width="1116" height="36" fill="#251e34"/>
+  <g fill="#f2eff8" font-family="Segoe UI,Arial" font-size="12" font-weight="700"><text x="270" y="568">Current file</text><text x="560" y="568">Title ID</text><text x="690" y="568">Title</text><text x="940" y="568">Version</text><text x="1048" y="568">Size</text><text x="1140" y="568">Status</text></g>
+  <rect x="246" y="584" width="1108" height="34" fill="#241632"/>
+  <g fill="#f2eff8" font-family="Segoe UI,Arial" font-size="12"><text x="260" y="606">Returnal\PPSA01285.ffpfsc</text><text x="560" y="606">PPSA01285</text><text x="690" y="606">Returnal</text><text x="940" y="606">01.000.000</text><text x="1048" y="606">56.3 GB</text><text x="1140" y="606" fill="#57c7a5">READY</text></g>
+  <g fill="#57c7a5" font-family="Segoe UI,Arial" font-size="12"><text x="260" y="642">A Plague Tale Requiem\PPSA05366.ffpfsc</text><text x="560" y="642">PPSA05366</text><text x="690" y="642">A Plague Tale: Requiem</text><text x="940" y="642">01.005.000</text><text x="1048" y="642">48.6 GB</text><text x="1140" y="642">READY</text><text x="260" y="676">Atomic Heart\PPSA10695.ffpfsc</text><text x="560" y="676">PPSA10695</text><text x="690" y="676">Atomic Heart</text><text x="940" y="676">01.011.000</text><text x="1048" y="676">48.6 GB</text><text x="1140" y="676">READY</text></g>
+
+  <rect x="242" y="716" width="1116" height="246" rx="4" fill="#1c1728"/>
+  <text x="260" y="744" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="15" font-weight="700">Game details</text>
+  <text x="360" y="744" fill="#57c7a5" font-family="Segoe UI,Arial" font-size="12">Loaded from details cache • icon0.png</text>
+  <rect x="260" y="760" width="110" height="28" rx="4" fill="#a875d6"/><text x="286" y="779" fill="white" font-family="Segoe UI,Arial" font-size="12" font-weight="700">Details</text>
+  <rect x="374" y="760" width="110" height="28" rx="4" fill="#251e34"/><text x="394" y="779" fill="#d7d1e1" font-family="Segoe UI,Arial" font-size="12">param.json</text>
+  <rect x="260" y="802" width="150" height="140" rx="5" fill="#251e34" stroke="#342a48"/>
+  <rect x="280" y="820" width="110" height="104" rx="8" fill="#0e2437"/><circle cx="335" cy="872" r="36" fill="#3d7f9f"/><circle cx="335" cy="872" r="17" fill="#0b0911"/><text x="304" y="936" fill="#9f97ad" font-family="Segoe UI,Arial" font-size="10">icon0.png</text>
+  <g font-family="Segoe UI,Arial" font-size="12"><text x="438" y="820" fill="#9f97ad">Title</text><text x="570" y="820" fill="#f2eff8" font-weight="700">Returnal</text><text x="438" y="846" fill="#9f97ad">Title ID / PPSA</text><text x="570" y="846" fill="#d7d1e1">PPSA01285</text><text x="438" y="872" fill="#9f97ad">Content version</text><text x="570" y="872" fill="#d7d1e1">01.000.000</text><text x="438" y="898" fill="#9f97ad">Master version</text><text x="570" y="898" fill="#d7d1e1">01.000.000</text><text x="438" y="924" fill="#9f97ad">Details source</text><text x="570" y="924" fill="#57c7a5">Details cache</text></g>
+  <rect x="1018" y="820" width="110" height="34" fill="#251e34" stroke="#342a48"/><text x="1033" y="842" fill="#d7d1e1" font-family="Segoe UI,Arial" font-size="11">Open folder</text>
+  <rect x="1138" y="820" width="118" height="34" fill="#251e34" stroke="#342a48"/><text x="1150" y="842" fill="#d7d1e1" font-family="Segoe UI,Arial" font-size="11">Run diagnostics</text>
+
+  <rect x="242" y="976" width="1116" height="46" rx="4" fill="#1c1728"/>
+  <text x="260" y="1005" fill="#f2eff8" font-family="Segoe UI,Arial" font-size="14" font-weight="700">Activity log</text>
+  <text x="370" y="1005" fill="#57c7a5" font-family="Consolas" font-size="11">[17:46:22] [CACHE] Game details loaded: PPSA01285.ffpfsc (cache)</text>
 </svg>
