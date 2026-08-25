@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
-SETTINGS_SCHEMA_VERSION = 3
+SETTINGS_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +25,8 @@ class AppSettings:
     result_filter: str = "ALL"
     window_geometry: str | None = None
     mkpfs_path: str | None = None
+    sort_column: str = "file"
+    sort_descending: bool = False
 
 
 def default_settings_path() -> Path:
@@ -152,6 +154,16 @@ def load_settings(settings_path: Path | None = None) -> AppSettings:
             else None
         ),
         mkpfs_path=_safe_optional_path(data.get("mkpfs_path")),
+        sort_column=(
+            data.get("sort_column")
+            if isinstance(data.get("sort_column"), str)
+            else defaults.sort_column
+        ),
+        sort_descending=(
+            data.get("sort_descending")
+            if isinstance(data.get("sort_descending"), bool)
+            else defaults.sort_descending
+        ),
     )
 
 
