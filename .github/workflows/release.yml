@@ -55,6 +55,7 @@ jobs:
             --name PS5-FFPFSC-Renamer `
             --icon assets/app-icon.ico `
             --paths src `
+            --add-data "assets/brand;assets/brand" `
             --collect-submodules send2trash `
             tools/app_entry.py
 
@@ -62,6 +63,11 @@ jobs:
         id: package
         shell: pwsh
         run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Refusing stable release for non-final version '$version'. Expected X.Y.Z."
+          }
+
           $app = ".\dist\PS5-FFPFSC-Renamer"
           Copy-Item ".\dist\mkpfs-helper.exe" "$app\mkpfs-helper.exe"
           Copy-Item ".\assets\app-icon.png" "$app\app-icon.png"
@@ -70,10 +76,12 @@ jobs:
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
           Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
 
+          New-Item -ItemType Directory -Force "$app\assets\brand" | Out-Null
+          Copy-Item ".\assets\brand\*" "$app\assets\brand\"
+
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
 
-          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
           $archive = ".\dist\PS5-FFPFSC-Renamer-v$version-Windows-x64.zip"
           Compress-Archive -Path "$app\*" -DestinationPath $archive -Force
           "version=$version" >> $env:GITHUB_OUTPUT

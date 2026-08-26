@@ -19,6 +19,7 @@ def _row(**overrides) -> ResultRow:
         output="Returnal - PPSA01285.ffpfsc",
         status="READY",
         duplicate=False,
+        change="",
     )
     values.update(overrides)
     return ResultRow(**values)
@@ -36,6 +37,26 @@ def test_search_matches_multiple_tokens_across_fields() -> None:
     assert matches_search(row, "returnal ppsa01285")
     assert matches_search(row, "G: game")
     assert not matches_search(row, "spider man")
+
+
+def test_search_and_filters_include_scan_change_state() -> None:
+    added = _row(change="ADDED")
+    changed = _row(source=Path("changed.ffpfsc"), change="CHANGED")
+
+    assert matches_search(added, "added")
+    assert matches_filter(added, "ADDED")
+    assert not matches_filter(added, "CHANGED")
+    assert matches_filter(changed, "CHANGED")
+
+
+def test_health_filters_group_safe_and_problem_rows() -> None:
+    assert matches_filter(_row(status="READY"), "HEALTHY")
+    assert matches_filter(_row(status="UNCHANGED"), "HEALTHY")
+    assert not matches_filter(_row(status="PARTIAL"), "HEALTHY")
+
+    for status in ("PARTIAL", "COLLISION", "INVALID", "ERROR"):
+        assert matches_filter(_row(status=status), "PROBLEMS")
+    assert not matches_filter(_row(status="READY"), "PROBLEMS")
 
 
 def test_status_and_duplicate_filters() -> None:

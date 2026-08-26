@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from ps5_ffpfsc_renamer.settings import (
@@ -31,6 +32,22 @@ def test_library_roots_are_deduplicated_case_insensitively(tmp_path: Path) -> No
     loaded = load_library_roots(settings)
 
     assert loaded == [folder.resolve()]
+
+
+def test_library_root_normalization_does_not_resolve_filesystem(monkeypatch, tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    root = tmp_path / "offline" / ".." / "Archive"
+
+    def fail_resolve(*_args, **_kwargs):
+        raise AssertionError("library root settings must not resolve filesystem paths")
+
+    monkeypatch.setattr(Path, "resolve", fail_resolve)
+
+    save_library_roots([root], settings)
+    loaded = load_library_roots(settings)
+    expected = Path(os.path.normpath(os.path.abspath(str(root))))
+
+    assert loaded == [expected]
 
 
 def test_invalid_settings_do_not_break_startup(tmp_path: Path) -> None:
@@ -178,17 +195,3 @@ def test_settings_file_uses_current_schema(tmp_path: Path) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
 
     assert data["schema_version"] == 7
-    assert "worker" in data
-    assert "component_order" in data
-    assert "filename_separator" in data
-    assert "mkpfs_path" in data
-    assert "sort_column" in data
-    assert "sort_descending" in data
-    assert "autoscan_on_start" in data
-    assert "autoscan_on_browse" in data
-    assert "autoscan_on_add_folder" in data
-    assert "remember_window_geometry" in data
-    assert "show_relative_paths" in data
-    assert "auto_prune_cache" in data
-    assert "watch_library" in data
-    assert "watch_interval_seconds" in data

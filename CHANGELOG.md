@@ -2,6 +2,91 @@
 
 All notable changes to PS5 FFPFSC Renamer are documented here.
 
+## [0.5.0] - 2026-08-27
+
+### Architecture
+
+- Replaced the runtime `gui_vXX` inheritance chain with the canonical `desktop.py` / `desktop_core.py` desktop path.
+- Extracted feature-specific desktop behavior into focused non-versioned mixins while retaining legacy GUI modules only for compatibility.
+- Added regression coverage for desktop method-resolution order and legacy-module isolation.
+- Canonical `ui/` modules are guarded from re-introducing runtime imports of versioned `gui_vXX` modules.
+
+### Library workflow
+
+- Added scan snapshot comparison with `ADDED`, `REMOVED` and `CHANGED` tracking.
+- Added `ADDED`, `CHANGED`, `HEALTHY`, `PROBLEMS` and `OFFLINE` result filters.
+- Added direct Edit-menu selection commands for `ADDED`, `CHANGED` and combined added/changed rows without rescanning or invoking MkPFS.
+- Added root-state reporting for removable/network locations and asynchronous availability checks.
+- Added scan-change reporting to the Tools menu and Activity Log.
+- Added a compact persistent status summary for visible/selected rows, online roots, problems, duplicate groups and scan changes.
+- Added multi-selection clipboard actions for unique PPSA/Title ID values and `Title ID - Title` lists.
+- Added direct Library Health actions for focusing problem/duplicate rows, managing roots and targeted PARTIAL/ERROR re-analysis.
+- Added a non-destructive Duplicate Manager with in-memory Title ID group summaries and explicit sampled comparison.
+- Added focused selection commands for all problem rows and all duplicate rows, including `Ctrl+Shift+P` and `Ctrl+Shift+D`.
+- Duplicate Manager group focus now selects rows by exact normalized Title ID rather than generic search matches.
+- Failed/cancelled scans restore the previous successful library view as stale/read-only context instead of clearing the table.
+- Partially successful multi-root scans preserve previous rows belonging to unavailable roots as `OFFLINE` while keeping fresh rows from online roots.
+- `OFFLINE` rows never enter generated rename plans and filesystem-backed actions remain disabled until their root is scanned successfully again.
+- Scan-diff baseline state for unavailable roots is preserved so a disconnected USB/NAS is not reported falsely as removed/changed content.
+
+### Feedback and diagnostics
+
+- Added **Help → Feedback & Bug Report...** for bug reports, feature requests, suggestions and general feedback without requiring email composition.
+- Added privacy-aware diagnostic payloads containing app/platform version, aggregate root/library state, scan metrics and recent Activity Log lines.
+- Configured library roots, common profile/AppData/temp paths and usernames are redacted before local storage or submission.
+- FFPFSC payload contents, credentials and metadata-cache contents are never included in feedback reports.
+- Unexpected Tk callback exceptions are captured into a local feedback queue and reopen the report dialog with the crash details prefilled.
+- Feedback is written atomically to the local queue before an HTTPS submission attempt; unsuccessful delivery leaves the report queued without blocking scan or rename workflows.
+- Direct submission accepts HTTPS endpoints only, with localhost HTTP allowed solely for receiver testing; no API token or project credential is embedded in the executable.
+
+### Branding
+
+- Added the official PS5 FFPFSC Renamer symbol and horizontal project logo as versioned brand assets.
+- Replaced generated placeholder artwork with `.png`/multi-resolution `.ico` output derived from the official symbol.
+- Added official window/taskbar branding, sidebar branding and a branded About dialog.
+- Added the project logo to the README and refreshed the canonical application preview.
+- Windows release packaging includes the brand assets used by the local README and application bundle.
+
+### Performance
+
+- Combined verified metadata and failure-cache lookup into a single batch operation.
+- Reused one filesystem-stat pass for cache validation, file-size display and scan snapshots.
+- Collapsed overlapping recursive library roots to avoid duplicate directory traversal.
+- Added scan-phase timing for root checks, discovery, cache resolution, MkPFS processing and total duration.
+- Added JSON/CSV export of aggregate metrics from the last completed scan without rescanning the library.
+- Duplicate Manager group summaries use existing in-memory scan results; file samples are read only when comparison is requested explicitly.
+- Root identity keys and relative-path rendering use lexical normalization so status/footer refreshes and table rendering do not resolve filesystem paths.
+- Multi-root display matching selects the deepest configured root without per-row filesystem resolution and rejects similar path prefixes such as `PS5` versus `PS5-backup`.
+- Automatic cache pruning is deferred off the Tk UI thread, runs only when every configured root is confirmed online, and probes only cache entries under currently configured roots.
+- Added deterministic scanner regression coverage using 1,024 synthetic `.ffpfsc` files across multiple directories without timing-based assertions.
+
+### Safety and exports
+
+- Added CSV/JSON rename-plan manifest export before filesystem mutation.
+- Rename manifests include source, destination, metadata, status, block reason and directory-operation information.
+- Added portable JSON backup/restore for application settings only.
+- Settings backup import is available under Options → General and validates format, schema, field types and unsupported keys before replacing current configuration.
+- Settings restore applies library roots, MkPFS source, sorting and Live Watch runtime state immediately; caches, history, logs and FFPFSC files remain unchanged and no rename or automatic scan is started.
+- Failed settings persistence attempts restore the previous runtime configuration rather than leaving a partially applied import.
+- Duplicate Manager does not expose rename or delete operations; filesystem mutation remains behind the existing rename/Recycle Bin safety paths.
+- Automatic cache pruning preserves cache records for historical or disconnected roots and is skipped when any configured root is offline, unavailable or unchecked.
+- Root availability probing now falls back safely when path resolution fails instead of allowing a normalization error to abort the probe.
+- Root state produced by optimized scans preserves the configured root identity even when the effective path resolves through a junction/symlink alias.
+- Enabling automatic cache pruning from Options takes effect in the running application while settings import remains non-destructive to cache data.
+- `Ctrl+Z` and `Ctrl+A` keep normal text-editing behavior when focus is in Entry/Text/Combobox/Spinbox controls, preventing accidental filesystem Undo from the Search field.
+- The UI advertises persistent `Ctrl+Z` Undo only when Operation History successfully records the completed rename transaction.
+
+### Documentation and quality
+
+- Updated the canonical README preview for the v0.5 desktop layout.
+- Revised README text to use concise technical terminology and explicit dependency/reference roles.
+- Added a prominent first-use precaution recommending validation with one non-critical or independently backed-up `.ffpfsc` before processing a complete library, together with a user-data responsibility disclaimer.
+- Documented settings backup location/restore behavior, scan-performance export, Library Health actions and offline-root preservation.
+- Documented Duplicate Manager behavior and focused problem/duplicate selection shortcuts.
+- Added a dedicated README section for feedback, feature requests, bug/crash reporting, privacy/redaction and queued delivery behavior.
+- Added tests for feedback redaction/transport, offline-root merge/baseline behavior, stale-view filesystem guards and official brand-asset integrity.
+- Added stable-release gates that reject development version strings and require official brand assets in the Windows release package.
+
 ## [0.4.1] - 2026-08-26
 
 ### Fixed
@@ -82,108 +167,3 @@ All notable changes to PS5 FFPFSC Renamer are documented here.
 - All v0.3 transactional rename, collision, Undo and selected-root protections remain in force.
 - FFPFSC contents are never rewritten or recompressed by these features.
 - Late destination collisions are blocked by the fresh pre-flight instead of relying only on the earlier UI preview.
-- Runtime batch failures still trigger rollback of already-completed steps.
-
-## [0.3.1] - 2026-08-25
-
-### Fixed
-
-- MkPFS helper processes now run silently on Windows without opening a console window for every scanned file.
-- The same hidden-process behavior is used by normal metadata reads, diagnostics and MkPFS engine tests.
-
-### Added
-
-- Integrated collapsible **Activity Log** at the bottom of the application.
-- Timestamped `INFO`, `CACHE`, `MKPFS`, `OK`, `WARN` and `ERROR` events.
-- Persistent rolling activity log under `%LOCALAPPDATA%\PS5-FFPFSC-Renamer\activity.log`.
-- Activity Log copy/clear/show/hide actions.
-- Dual analysis progress display:
-  - real determinate **Overall scan** progress;
-  - animated **Current activity** bar while discovery/cache/MkPFS work is active.
-- Expanded Credits & Acknowledgements in the README for runtime dependencies, build tools and related PS5 tooling projects.
-
-### Changed
-
-- Moved the source-development launcher from root `RUN.bat` to `tools\dev\RUN_DEV.bat` so the repository root better reflects the packaged end-user experience.
-- README clearly distinguishes development files from the standalone Windows release package.
-
-## [0.3.0] - 2026-08-25
-
-### Added
-
-- Automatic scan of previously saved library folders at application startup.
-- Always-visible **Scan now / F5** action even when automatic scanning is disabled.
-- Central **Options** window with General, Scan & Performance, Naming, Cache and MkPFS settings.
-- Configurable startup/Browse/Add-folder autoscan behavior.
-- Configurable relative/full path display and window-geometry persistence.
-- Optional automatic pruning of cache records whose files no longer exist.
-- Persistent operation history with undo support for rename transactions.
-- `Ctrl+Z` undo, `F5` scan, `Ctrl+A` select-all and `Ctrl+E` export shortcuts.
-- CSV and JSON library export for all rows or only visible/filtered results.
-- Library Health report.
-- Cache Manager and MkPFS Engine Manager entries in the desktop Tools menu.
-- Sortable result columns with persisted ascending/descending order.
-- Total size of visible results shown beside the result count.
-- Negative cache for unchanged MkPFS failures so persistent PARTIAL/ERROR files do not get re-parsed on every scan.
-- Branded procedural in-app icon set for Browse, Add folder, Scan, Options, Cache, Engine, Undo, Export and Health actions.
-- Branded Windows application icon embedded in packaged EXE builds.
-
-### Performance
-
-- Replaced recursive `Path.glob()` discovery with iterative `os.scandir()` traversal for lower Windows filesystem overhead.
-- Avoids following directory symlinks/reparse points during recursive discovery.
-- Batch SQLite metadata-cache lookups replace one connection/query cycle per FFPFSC file.
-- Batch failure-cache lookups avoid unnecessary MkPFS launches for unchanged problematic files.
-- Multi-root scans continue when one selected drive/folder is temporarily unavailable instead of failing the whole library.
-
-### Reliability & Safety
-
-- Batch rename is transactional: if a later item fails, previously completed items are rolled back automatically.
-- Smart-folder operations report incomplete rollback explicitly instead of hiding a partially restored filesystem state.
-- Undo validates destinations and refuses to overwrite files/folders created after the original rename.
-- Folders created by the app are removed during undo only when they are empty.
-- Selected library roots remain protected from Smart-folder renaming.
-
-### Changed
-
-- Restored libraries become immediately useful after reopening the app; Browse is no longer required just to trigger a scan.
-- The old scan control that could be visually squeezed out is replaced by an always-visible dedicated action row.
-- Advanced actions are consolidated under `File / Edit / Tools / Help` menus and the Options window so the main library remains focused on scan results.
-
-## [0.2.0] - 2026-08-25
-
-### Added
-
-- Persistent multi-folder libraries stored in `%LOCALAPPDATA%\PS5-FFPFSC-Renamer\settings.json`.
-- Automatic scan after **Browse** and **Add folder**.
-- Full preference persistence: workers, recursive scan, filename builder, component order, version format, folder mode, result filter and window geometry.
-- Search box and result filters (`READY`, `UNCHANGED`, `PARTIAL`, `COLLISION`, `INVALID`, `ERROR`, `DUPLICATES`).
-- File-size column.
-- Extended multi-selection with Ctrl/Shift and right-click operations for selected files.
-- Right-click actions for rename, Explorer, diagnostics, re-analysis, copy path/Title ID and Recycle Bin.
-- Duplicate Title ID comparison with size, version, path and lightweight sampled fingerprints.
-- `PARTIAL` metadata display when MkPFS cannot verify metadata but a PPSA can be inferred from the file/folder name.
-- Read-only MkPFS diagnostics using `inspect` and `tree --deep`.
-- Smart folder handling for loose files and already-organized game folders.
-- Persistent SQLite metadata cache with quick fingerprint fallback for moved/renamed files.
-- Progress, ETA, cancellation and configurable workers.
-- Standalone Windows build pipeline with a separate MkPFS helper executable.
-
-### Changed
-
-- Filename builder is compact and reorderable instead of preset-only.
-- Scan result table is the dominant area of the interface and shows relative paths when useful.
-- Collision explanations are kept out of the visible Status column and shown on hover / context actions.
-- MkPFS errors no longer flood the Title column with tracebacks.
-
-### Safety
-
-- FFPFSC contents are never rewritten or recompressed by rename operations.
-- Automatic/batch rename only uses metadata verified from internal `sce_sys/param.json`.
-- `PARTIAL` metadata inferred from paths is display-only.
-- Existing destinations are never overwritten or merged automatically.
-- Delete actions use the Windows Recycle Bin and require confirmation.
-
-## [0.1.x] - Development series
-
-Initial scanner, metadata reader, cache, filename planning, GUI and Smart folder handling development.

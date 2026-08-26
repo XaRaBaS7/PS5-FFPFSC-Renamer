@@ -18,6 +18,7 @@ class ExportRow:
     proposed_output: str
     status: str
     duplicate_title_id: bool
+    change_state: str = ""
 
 
 EXPORT_FIELDS = (
@@ -30,6 +31,7 @@ EXPORT_FIELDS = (
     "proposed_output",
     "status",
     "duplicate_title_id",
+    "change_state",
 )
 
 

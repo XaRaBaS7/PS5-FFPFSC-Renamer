@@ -53,6 +53,13 @@ def default_settings_path() -> Path:
     return root / "settings.json"
 
 
+def _lexical_library_root(value: str | Path) -> Path:
+    """Normalize a configured root without probing removable/network storage."""
+
+    expanded = os.path.expanduser(str(value))
+    return Path(os.path.normpath(os.path.abspath(expanded)))
+
+
 def _dedupe_paths(values: Iterable[str | Path]) -> list[Path]:
     result: list[Path] = []
     seen: set[str] = set()
@@ -60,12 +67,8 @@ def _dedupe_paths(values: Iterable[str | Path]) -> list[Path]:
         text = str(value).strip()
         if not text:
             continue
-        path = Path(text).expanduser()
-        try:
-            normalized = path.resolve(strict=False)
-        except OSError:
-            normalized = path.absolute()
-        key = str(normalized).casefold()
+        normalized = _lexical_library_root(text)
+        key = os.path.normcase(str(normalized)).casefold()
         if key in seen:
             continue
         seen.add(key)

@@ -14,6 +14,7 @@ class ResultRow:
     output: str
     status: str
     duplicate: bool = False
+    change: str = ""
 
 
 def human_size(size: int | None) -> str:
@@ -50,6 +51,7 @@ def matches_search(row: ResultRow, query: str) -> bool:
             row.version,
             row.output,
             row.status,
+            row.change,
         )
     ).casefold()
     return all(token in haystack for token in query.split())
@@ -57,11 +59,18 @@ def matches_search(row: ResultRow, query: str) -> bool:
 
 def matches_filter(row: ResultRow, selected: str) -> bool:
     selected = selected.strip().upper() or "ALL"
+    status = row.status.upper()
     if selected == "ALL":
         return True
     if selected == "DUPLICATES":
         return row.duplicate
-    return row.status.upper() == selected
+    if selected == "HEALTHY":
+        return status in {"READY", "UNCHANGED"}
+    if selected == "PROBLEMS":
+        return status in {"PARTIAL", "COLLISION", "INVALID", "ERROR"}
+    if selected in {"ADDED", "CHANGED"}:
+        return row.change.upper() == selected
+    return status == selected
 
 
 def duplicate_title_ids(rows: list[ResultRow]) -> set[str]:

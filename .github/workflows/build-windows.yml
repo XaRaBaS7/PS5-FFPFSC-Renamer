@@ -50,6 +50,7 @@ jobs:
             --name PS5-FFPFSC-Renamer `
             --icon assets/app-icon.ico `
             --paths src `
+            --add-data "assets/brand;assets/brand" `
             --collect-submodules send2trash `
             tools/app_entry.py
 
@@ -63,6 +64,9 @@ jobs:
           Copy-Item ".\LICENSE" "$app\LICENSE"
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
           Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
+
+          New-Item -ItemType Directory -Force "$app\assets\brand" | Out-Null
+          Copy-Item ".\assets\brand\*" "$app\assets\brand\"
 
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"

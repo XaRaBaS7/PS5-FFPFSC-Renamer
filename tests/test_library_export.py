@@ -19,6 +19,7 @@ def _rows() -> list[ExportRow]:
             proposed_output="PPSA01285 - Returnal.ffpfsc",
             status="READY",
             duplicate_title_id=False,
+            change_state="ADDED",
         )
     ]
 
@@ -33,6 +34,7 @@ def test_csv_export_is_excel_friendly_utf8(tmp_path: Path) -> None:
         rows = list(csv.DictReader(handle))
     assert rows[0]["title_id"] == "PPSA01285"
     assert rows[0]["title"] == "Returnal"
+    assert rows[0]["change_state"] == "ADDED"
 
 
 def test_json_export_has_stable_fields(tmp_path: Path) -> None:
@@ -43,3 +45,4 @@ def test_json_export_has_stable_fields(tmp_path: Path) -> None:
     assert payload[0]["filename"] == "PPSA01285.ffpfsc"
     assert payload[0]["duplicate_title_id"] is False
     assert payload[0]["size_bytes"] == 123456789
+    assert payload[0]["change_state"] == "ADDED"
