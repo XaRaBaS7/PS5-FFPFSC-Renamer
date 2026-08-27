@@ -4,6 +4,18 @@ All notable changes to PS5 FFPFSC Renamer are documented here.
 
 ## [0.5.0] - 2026-08-27
 
+### Hotfix refresh
+
+- Fixed startup scans against the modern shell so a stale, already-destroyed central `Options` Tk widget can no longer abort startup with `TclError`; the live sidebar control is preferred and stale-widget configuration is ignored safely.
+- Added a live one-second scan clock with progress percentage, elapsed time and ETA estimation so long MkPFS reads remain visibly active even while one file is taking time to complete.
+- Renamed the final action to `Apply changes` / `Apply changes (N)` and gave the enabled action a distinct green treatment while retaining the existing `self._rename` / `RenameSafetyMixin` execution path.
+- Added the discreet clickable `Created by XaRaBaS` credit to the main desktop shell without adding it to README or About.
+- Lowered MkPFS child-process priority on Windows and redirected helper stdout/stderr to temporary files with bounded diagnostic tail reads instead of retaining unbounded process output in Python memory.
+- Added a bundled-helper metadata path that reads PFSC block offsets lazily and walks only root → `sce_sys` → `param.json`, avoiding the complete PFSC offset-list materialization and recursive exFAT tree construction used by the generic MkPFS 0.0.9 deep-unpack path.
+- The low-memory metadata path is read-only, preserves cancellation/timeout behavior and falls back to the stock MkPFS extractor only for unsupported legacy layouts; `.ffpfsc` files are never rewritten or recompressed.
+- Windows packaging now keeps the exact MkPFS 0.0.9 source distribution plus the bundled helper wrapper source under `source/third-party/`; redundant root `assets/` and `app-icon.png` remain forbidden.
+- Removed the temporary one-shot v0.5.0 release-repair script and workflow from the maintained tree.
+
 ### Architecture
 
 - Replaced the runtime `gui_vXX` inheritance chain with the canonical `desktop.py` / `desktop_core.py` desktop path.
