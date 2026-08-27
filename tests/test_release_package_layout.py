@@ -21,6 +21,10 @@ def test_windows_package_keeps_required_docs_and_mkpfs_source_without_redundant_
         assert 'Copy-Item ".\\assets\\brand\\*"' not in text
         assert 'Unexpected redundant app-icon.png in package root' in text
         assert 'Unexpected redundant assets directory in package root' in text
+        assert 'Bundled brand assets are missing' in text
+        assert '$package = ".\\dist\\PS5-FFPFSC-Renamer-v$version-Windows-x64"' in text
+        assert "Move-Item $app $package" in text
+        assert "Compress-Archive -Path $package" in text
 
 
 def test_feedback_button_is_enabled_for_send_only_after_receiver_health_check() -> None:
