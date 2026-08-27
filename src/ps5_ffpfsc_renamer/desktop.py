@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .desktop_core import RenamerApp as DesktopCore
+from .process_utils import terminate_registered_processes
 from .ui.activity_progress_mixin import ActivityProgressMixin
 from .ui.details_cache_maintenance_mixin import DetailsCacheMaintenanceMixin
 from .ui.details_prefetch_mixin import DetailsPrefetchMixin
@@ -103,7 +104,12 @@ class RenamerApp(
 
 def main() -> None:
     app = RenamerApp()
-    app.mainloop()
+    try:
+        app.mainloop()
+    finally:
+        # No MkPFS helper may outlive the desktop process. This also covers
+        # cancellation/close races while a bounded metadata read is active.
+        terminate_registered_processes()
 
 
 if __name__ == "__main__":
