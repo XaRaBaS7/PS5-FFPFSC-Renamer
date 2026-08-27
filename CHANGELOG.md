@@ -9,10 +9,18 @@ All notable changes to PS5 FFPFSC Renamer are documented here.
 - Fixed startup scans against the modern shell so a stale, already-destroyed central `Options` Tk widget can no longer abort startup with `TclError`; the live sidebar control is preferred and stale-widget configuration is ignored safely.
 - Added a live one-second scan clock with progress percentage, elapsed time and ETA estimation so long MkPFS reads remain visibly active even while one file is taking time to complete.
 - Renamed the final action to `Apply changes` / `Apply changes (N)` and gave the enabled action a distinct green treatment while retaining the existing `self._rename` / `RenameSafetyMixin` execution path.
-- Added the discreet clickable `Created by XaRaBaS` credit to the main desktop shell without adding it to README or About.
+- Reworked the bottom project credit into a spaced, inset `PROJECT BY XaRaBaS ↗` element instead of an edge-hugging text link.
+- Replaced the ambiguous Folder choices with outcome-based **One folder per game**, **All files in library root** and **Keep current structure** organization modes, including a real Before/After example from the current library.
+- Replaced the native Windows rename confirmation with a dark in-app **Review changes** dialog that states the selected organization result, READY count, path changes and folder operations before Apply.
+- Replaced the old Options tab strip with a vertical settings navigation for General, Scan & performance, Naming and Cache & engine.
 - Lowered MkPFS child-process priority on Windows and redirected helper stdout/stderr to temporary files with bounded diagnostic tail reads instead of retaining unbounded process output in Python memory.
 - Added a bundled-helper metadata path that reads PFSC block offsets lazily and walks only root → `sce_sys` → `param.json`, avoiding the complete PFSC offset-list materialization and recursive exFAT tree construction used by the generic MkPFS 0.0.9 deep-unpack path.
-- The low-memory metadata path is read-only, preserves cancellation/timeout behavior and falls back to the stock MkPFS extractor only for unsupported legacy layouts; `.ffpfsc` files are never rewritten or recompressed.
+- Packaged metadata reads no longer fall back automatically to the stock recursive MkPFS extractor when the bounded path cannot handle a layout; the item is reported unavailable instead of risking unbounded RAM use.
+- Packaged Game Details now use the same bounded strategy through `read-game-details`, reading only `sce_sys/param.json` plus optional `sce_sys/icon0.png` without building the complete exFAT tree.
+- Game Details reads are explicitly on demand while the details panel is hidden, so simply moving through library rows no longer starts background MkPFS disk/RAM work.
+- Bundled helper processes are monitored with a 1 GiB working-set safety threshold and are stopped with a clear diagnostic if an unexpected image would otherwise exceed it.
+- Helper processes are tracked and cleaned up on cancellation, timeout and application shutdown so `mkpfs-helper.exe` cannot remain orphaned after the desktop exits.
+- The low-memory metadata/details paths are read-only and `.ffpfsc` files are never rewritten or recompressed.
 - Windows packaging now keeps the exact MkPFS 0.0.9 source distribution plus the bundled helper wrapper source under `source/third-party/`; redundant root `assets/` and `app-icon.png` remain forbidden.
 - Removed the temporary one-shot v0.5.0 release-repair script and workflow from the maintained tree.
 
