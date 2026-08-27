@@ -13,3 +13,8 @@ coverage.xml
 .vscode/
 Thumbs.db
 .DS_Store
+
+# Feedback deployment secrets and received report data
+deploy/ffpfsc/admin-config.php
+deploy/ffpfsc/feedback-data/*.json
+deploy/ffpfsc/feedback-data/.admin-state.json

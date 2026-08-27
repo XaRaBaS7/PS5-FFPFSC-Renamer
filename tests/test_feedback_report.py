@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from ps5_ffpfsc_renamer.feedback_report import (
@@ -92,3 +93,33 @@ def test_exception_payload_redacts_traceback_paths(monkeypatch) -> None:
     assert payload["type"] == "RuntimeError"
     assert root_text not in payload["message"]
     assert "SecretUser" not in payload["traceback"]
+
+
+def test_worst_case_feedback_payload_stays_below_receiver_limit() -> None:
+    huge = "X" * 100_000
+    report = create_feedback_report(
+        category="Bug report",
+        summary=huge,
+        description=huge,
+        diagnostics={
+            "state": "ERROR",
+            "note": huge,
+            "counts": {"READY": 1000, "ERROR": 1},
+        },
+        exception={
+            "type": "RuntimeError",
+            "message": huge,
+            "traceback": huge,
+        },
+        activity_lines=[huge for _ in range(120)],
+        report_id="worst-case-report",
+        created_at="2026-08-27T07:00:00+00:00",
+    )
+
+    encoded = json.dumps(
+        report.payload(),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    assert len(encoded) <= 131_072

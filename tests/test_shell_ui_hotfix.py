@@ -62,3 +62,27 @@ def test_modern_shell_keeps_options_in_sidebar_and_detaches_native_menubar() -> 
     menu_source = inspect.getsource(ShellMiscMixin._install_modern_command_bar)
     assert 'text="Options"' in sidebar_source
     assert 'self.configure(menu="")' in menu_source
+
+
+def test_modern_shell_failure_is_logged_and_does_not_abort_remaining_steps() -> None:
+    shell = object.__new__(ShellMiscMixin)
+    calls: list[str] = []
+    warnings: list[str] = []
+
+    def fail_sidebar() -> None:
+        calls.append("sidebar")
+        raise RuntimeError("synthetic layout failure")
+
+    shell._install_sidebar_options_button = fail_sidebar
+    shell._remove_legacy_central_options_button = lambda: calls.append("cleanup")
+    shell._install_rename_plan_button = lambda: calls.append("rename")
+    shell._install_modern_command_bar = lambda: calls.append("menu")
+    shell._refresh_rename_plan_button = lambda: calls.append("refresh")
+    shell._log = lambda _level, message: warnings.append(message)
+
+    ShellMiscMixin._install_modern_shell(shell)
+
+    assert calls == ["sidebar", "cleanup", "rename", "menu", "refresh"]
+    assert len(warnings) == 1
+    assert "Modern UI fallback (sidebar options)" in warnings[0]
+    assert "synthetic layout failure" in warnings[0]

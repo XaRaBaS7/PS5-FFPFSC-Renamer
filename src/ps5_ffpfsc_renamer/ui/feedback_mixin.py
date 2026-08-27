@@ -15,8 +15,8 @@ from ..feedback_report import (
     create_feedback_report,
 )
 from ..feedback_transport import (
+    feedback_endpoint_health,
     queue_feedback_report,
-    resolve_feedback_endpoint,
     send_or_queue_feedback,
 )
 
@@ -194,16 +194,8 @@ class FeedbackMixin:
             justify="left",
         ).pack(anchor="w", pady=(3, 8))
 
-        try:
-            endpoint_ready = resolve_feedback_endpoint() is not None
-            endpoint_text = (
-                "Direct HTTPS submission is configured."
-                if endpoint_ready
-                else "Direct endpoint is not configured in this build; Send report will keep the report in the local queue."
-            )
-        except ValueError as exc:
-            endpoint_text = f"Feedback endpoint configuration error: {exc}"
-        status_var = tk.StringVar(value=endpoint_text)
+        endpoint_state = {"ready": False}
+        status_var = tk.StringVar(value="Checking direct feedback channel...")
         ttk.Label(
             form,
             textvariable=status_var,
@@ -245,7 +237,39 @@ class FeedbackMixin:
 
         send_button: ttk.Button
 
+        def apply_endpoint_health(health) -> None:
+            endpoint_state["ready"] = bool(health.available)
+            try:
+                send_button.configure(
+                    text="Send report" if health.available else "Save report locally",
+                    state="normal",
+                )
+            except tk.TclError:
+                return
+            status_var.set(health.detail)
+
+        def check_endpoint_async() -> None:
+            endpoint_state["ready"] = False
+            try:
+                send_button.configure(text="Checking...", state="disabled")
+            except tk.TclError:
+                return
+            status_var.set("Checking direct feedback channel...")
+
+            def worker() -> None:
+                health = feedback_endpoint_health()
+                try:
+                    self.after(0, lambda: apply_endpoint_health(health))
+                except tk.TclError:
+                    pass
+
+            threading.Thread(target=worker, daemon=True, name="ffpfsc-feedback-health").start()
+
         def send() -> None:
+            if not endpoint_state["ready"]:
+                save_local()
+                return
+
             report = build_current()
             send_button.configure(state="disabled")
             status_var.set("Saving report locally and attempting secure submission...")
@@ -259,6 +283,8 @@ class FeedbackMixin:
                     except tk.TclError:
                         return
                     if result.sent:
+                        endpoint_state["ready"] = True
+                        send_button.configure(text="Send report")
                         status_var.set("Report sent successfully. Thank you for the feedback.")
                         self.status_var.set(f"Feedback report sent: {report.report_id}")
                         messagebox.showinfo(
@@ -267,6 +293,8 @@ class FeedbackMixin:
                             parent=window,
                         )
                     else:
+                        endpoint_state["ready"] = False
+                        send_button.configure(text="Save report locally")
                         queued_name = result.queued_path.name if result.queued_path else report.report_id
                         status_var.set(f"{result.detail} Saved locally as {queued_name}.")
                         self.status_var.set(f"Feedback report queued: {queued_name}")
@@ -287,7 +315,14 @@ class FeedbackMixin:
         buttons.pack(fill="x", pady=(10, 0))
         ttk.Button(buttons, text="Preview technical data", command=preview).pack(side="left")
         ttk.Button(buttons, text="Save report", command=save_local).pack(side="left", padx=(6, 0))
-        send_button = ttk.Button(buttons, text="Send report", command=send, style="Primary.TButton")
+        ttk.Button(buttons, text="Check connection", command=check_endpoint_async).pack(side="left", padx=(6, 0))
+        send_button = ttk.Button(
+            buttons,
+            text="Checking...",
+            command=send,
+            style="Primary.TButton",
+            state="disabled",
+        )
         send_button.pack(side="right")
         ttk.Button(buttons, text="Close", command=window.destroy).pack(side="right", padx=(0, 6))
 
@@ -297,6 +332,7 @@ class FeedbackMixin:
 
         window.protocol("WM_DELETE_WINDOW", closed)
         summary_entry.focus_set()
+        check_endpoint_async()
 
     def report_callback_exception(self, exc_type, exc_value, tb) -> None:
         """Persist unexpected Tk callback failures and offer one-click reporting."""

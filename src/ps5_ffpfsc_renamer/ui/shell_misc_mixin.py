@@ -58,12 +58,31 @@ class ShellMiscMixin:
         except (tk.TclError, AttributeError):
             return ""
 
+    def _shell_warning(self, label: str, exc: BaseException) -> None:
+        """Record a cosmetic-shell fallback without invoking the crash reporter."""
+
+        try:
+            self._log("WARN", f"Modern UI fallback ({label}): {type(exc).__name__}: {exc}")
+        except Exception:
+            pass
+
     def _install_modern_shell(self) -> None:
-        self._install_sidebar_options_button()
-        self._remove_legacy_central_options_button()
-        self._install_rename_plan_button()
-        self._install_modern_command_bar()
-        self._refresh_rename_plan_button()
+        # This layer is presentation-only. A Tk/theme/layout difference must
+        # never prevent the application from starting or trigger an automatic
+        # crash report. Each enhancement is therefore isolated and the legacy
+        # widget remains available when its replacement cannot be installed.
+        steps = (
+            ("sidebar options", self._install_sidebar_options_button),
+            ("central options cleanup", self._remove_legacy_central_options_button),
+            ("rename action", self._install_rename_plan_button),
+            ("command bar", self._install_modern_command_bar),
+            ("rename action refresh", self._refresh_rename_plan_button),
+        )
+        for label, action in steps:
+            try:
+                action()
+            except Exception as exc:
+                self._shell_warning(label, exc)
 
     def _install_sidebar_brand(self) -> None:
         # The sidebar has roughly 176 px of usable width after its existing
@@ -252,54 +271,65 @@ class ShellMiscMixin:
 
         bar = tk.Frame(content, bg=COLORS["bg"], bd=0, highlightthickness=0)
         try:
-            bar.pack(fill="x", pady=(0, 7), before=header)
-        except tk.TclError:
-            bar.pack(fill="x", pady=(0, 7))
-
-        try:
-            end = menubar.index("end")
-        except tk.TclError:
-            end = None
-        if end is None:
-            bar.destroy()
-            return
-
-        for index in range(int(end) + 1):
             try:
-                if menubar.type(index) != "cascade":
-                    continue
-                label = str(menubar.entrycget(index, "label"))
-                menu_name = menubar.entrycget(index, "menu")
-                submenu = self.nametowidget(menu_name)
-            except (tk.TclError, KeyError):
-                continue
-            if not isinstance(submenu, tk.Menu):
-                continue
-            self._style_popup_menu(submenu)
-            button = tk.Menubutton(
-                bar,
-                text=label,
-                menu=submenu,
-                indicatoron=False,
-                bg=COLORS["bg"],
-                fg=COLORS["text_soft"],
-                activebackground=COLORS["panel_hover"],
-                activeforeground=COLORS["text"],
-                relief="flat",
-                bd=0,
-                highlightthickness=0,
-                padx=9,
-                pady=5,
-                font=("Segoe UI", 9),
-                cursor="hand2",
-            )
-            button.pack(side="left", padx=(0, 2))
+                bar.pack(fill="x", pady=(0, 7), before=header)
+            except tk.TclError:
+                bar.pack(fill="x", pady=(0, 7))
 
-        try:
+            try:
+                end = menubar.index("end")
+            except tk.TclError:
+                end = None
+            if end is None:
+                bar.destroy()
+                return
+
+            for index in range(int(end) + 1):
+                try:
+                    if menubar.type(index) != "cascade":
+                        continue
+                    label = str(menubar.entrycget(index, "label"))
+                    menu_name = menubar.entrycget(index, "menu")
+                    submenu = self.nametowidget(menu_name)
+                except (tk.TclError, KeyError):
+                    continue
+                if not isinstance(submenu, tk.Menu):
+                    continue
+                self._style_popup_menu(submenu)
+                button = tk.Menubutton(
+                    bar,
+                    text=label,
+                    menu=submenu,
+                    indicatoron=False,
+                    bg=COLORS["bg"],
+                    fg=COLORS["text_soft"],
+                    activebackground=COLORS["panel_hover"],
+                    activeforeground=COLORS["text"],
+                    relief="flat",
+                    bd=0,
+                    highlightthickness=0,
+                    padx=9,
+                    pady=5,
+                    font=("Segoe UI", 9),
+                    cursor="hand2",
+                )
+                button.pack(side="left", padx=(0, 2))
+
+            # Detach the native Windows menu only after the replacement row is
+            # fully constructed. If anything above fails, the original menu is
+            # still attached and remains usable.
             self.configure(menu="")
-        except tk.TclError:
-            pass
-        self._modern_command_bar = bar
+            self._modern_command_bar = bar
+        except Exception:
+            try:
+                bar.destroy()
+            except tk.TclError:
+                pass
+            try:
+                self.configure(menu=menubar)
+            except tk.TclError:
+                pass
+            raise
 
     def _select_all_rows(self) -> None:
         rows = self.tree.get_children()

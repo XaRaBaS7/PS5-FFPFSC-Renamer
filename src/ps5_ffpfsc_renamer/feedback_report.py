@@ -23,7 +23,10 @@ FEEDBACK_CATEGORIES = (
     "General feedback",
 )
 _MAX_TEXT = 24_000
+_MAX_SUMMARY = 500
+_MAX_DESCRIPTION = 24_000
 _MAX_ACTIVITY_LINES = 80
+_MAX_ACTIVITY_LINE = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +61,9 @@ def _clip(value: str, limit: int = _MAX_TEXT) -> str:
     text = str(value)
     if len(text) <= limit:
         return text
-    return text[:limit] + f"\n...[truncated {len(text) - limit} character(s)]"
+    suffix = f"\n...[truncated {len(text) - limit} character(s)]"
+    keep = max(0, limit - len(suffix))
+    return text[:keep] + suffix
 
 
 def _replacement_pairs(roots: Iterable[str | Path]) -> list[tuple[str, str]]:
@@ -210,7 +215,7 @@ def create_feedback_report(
     category = category if category in FEEDBACK_CATEGORIES else "General feedback"
     clean_roots = tuple(roots)
     clean_activity = tuple(
-        redact_text(line, roots=clean_roots)
+        _clip(redact_text(line, roots=clean_roots), _MAX_ACTIVITY_LINE)
         for line in list(activity_lines)[-_MAX_ACTIVITY_LINES:]
     )
     clean_exception = (
@@ -226,8 +231,8 @@ def create_feedback_report(
         report_id=report_id or str(uuid.uuid4()),
         created_at=created_at or datetime.now(timezone.utc).isoformat(),
         category=category,
-        summary=redact_text(summary.strip() or "Untitled feedback", roots=clean_roots),
-        description=redact_text(description.strip(), roots=clean_roots),
+        summary=redact_text(_clip(summary.strip() or "Untitled feedback", _MAX_SUMMARY), roots=clean_roots),
+        description=redact_text(_clip(description.strip(), _MAX_DESCRIPTION), roots=clean_roots),
         app_version=__version__,
         diagnostics=sanitize_value(dict(diagnostics), roots=clean_roots),
         exception=clean_exception,

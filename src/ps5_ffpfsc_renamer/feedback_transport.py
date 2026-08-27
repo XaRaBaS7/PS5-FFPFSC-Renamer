@@ -13,7 +13,8 @@ from urllib.request import Request, urlopen
 from .feedback_report import FeedbackReport
 
 FEEDBACK_ENDPOINT_ENV = "PS5_FFPFSC_FEEDBACK_ENDPOINT"
-DEFAULT_FEEDBACK_ENDPOINT = ""
+DEFAULT_FEEDBACK_ENDPOINT = "https://www.youstoreinformatica.com/ffpfsc/ps5-ffpfsc-feedback.php"
+FEEDBACK_SERVICE_NAME = "ps5-ffpfsc-feedback"
 _MAX_RESPONSE_BYTES = 4096
 
 
@@ -22,6 +23,14 @@ class FeedbackDelivery:
     sent: bool
     detail: str
     queued_path: Path | None = None
+    status_code: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FeedbackEndpointHealth:
+    configured: bool
+    available: bool
+    detail: str
     status_code: int | None = None
 
 
@@ -86,6 +95,64 @@ def resolve_feedback_endpoint(explicit: str | None = None) -> str | None:
     raise ValueError("feedback endpoint must use HTTPS (HTTP is allowed only for localhost testing)")
 
 
+def _response_json(response) -> dict[str, Any] | None:
+    try:
+        raw = response.read(_MAX_RESPONSE_BYTES)
+    except OSError:
+        return None
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def feedback_endpoint_health(
+    *,
+    endpoint: str | None = None,
+    timeout: float = 6.0,
+) -> FeedbackEndpointHealth:
+    """Verify that the configured endpoint is the expected project receiver."""
+
+    try:
+        target = resolve_feedback_endpoint(endpoint)
+    except ValueError as exc:
+        return FeedbackEndpointHealth(False, False, str(exc))
+    if target is None:
+        return FeedbackEndpointHealth(False, False, "Direct feedback endpoint is not configured in this build.")
+
+    request = Request(
+        target,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "PS5-FFPFSC-Renamer-Feedback/1",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=max(1.0, float(timeout))) as response:
+            status = int(getattr(response, "status", 200))
+            payload = _response_json(response)
+        if not 200 <= status < 300:
+            return FeedbackEndpointHealth(True, False, f"Feedback receiver returned HTTP {status}.", status)
+        if not payload or payload.get("ok") is not True or payload.get("service") != FEEDBACK_SERVICE_NAME:
+            return FeedbackEndpointHealth(
+                True,
+                False,
+                "Configured URL did not identify itself as the PS5 FFPFSC feedback receiver.",
+                status,
+            )
+        return FeedbackEndpointHealth(True, True, "Direct HTTPS feedback receiver is online.", status)
+    except HTTPError as exc:
+        return FeedbackEndpointHealth(True, False, f"Feedback receiver returned HTTP {exc.code}.", int(exc.code))
+    except URLError as exc:
+        return FeedbackEndpointHealth(True, False, f"Feedback receiver unavailable: {exc.reason}")
+    except OSError as exc:
+        return FeedbackEndpointHealth(True, False, f"Feedback receiver check failed: {exc}")
+
+
 def submit_feedback_payload(
     payload: Mapping[str, Any],
     *,
@@ -113,7 +180,7 @@ def submit_feedback_payload(
     try:
         with urlopen(request, timeout=max(1.0, float(timeout))) as response:
             status = int(getattr(response, "status", 200))
-            response.read(_MAX_RESPONSE_BYTES)
+            _response_json(response)
         if 200 <= status < 300:
             return FeedbackDelivery(True, "Feedback report submitted successfully.", status_code=status)
         return FeedbackDelivery(False, f"Feedback server returned HTTP {status}.", status_code=status)

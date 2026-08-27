@@ -1,0 +1,9 @@
+Options -Indexes
+
+<Files "admin-config.php">
+    Require all denied
+</Files>
+
+<Files "admin-config.example.php">
+    Require all denied
+</Files>
