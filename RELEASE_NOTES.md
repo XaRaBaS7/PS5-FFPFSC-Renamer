@@ -11,7 +11,7 @@ The downloadable Windows package for this same v0.5.0 release is refreshed from 
 - The final action now reads `Apply changes` / `Apply changes (N)` and uses a distinct green enabled state while continuing to route through the existing safe rename entry point.
 - Added the discreet clickable `Created by XaRaBaS` credit to the main desktop interface.
 - Lowered MkPFS child-process priority on Windows and moved helper stdout/stderr to temporary files with bounded diagnostic-tail reads.
-- Added a bounded-memory metadata path in the bundled helper: PFSC block offsets are read lazily and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
+- Added a bounded-memory metadata path in the bundled helper: PFSC block offsets use a small 64 KiB LRU page cache and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
 - The metadata path remains read-only, keeps timeout/cancellation behavior and never rewrites or recompresses `.ffpfsc` files.
 - Windows packaging keeps both the exact MkPFS 0.0.9 source distribution and the helper wrapper source under `source/third-party/`.
 - Removed the temporary one-shot v0.5.0 release-repair script/workflow from the maintained project tree.
@@ -52,7 +52,7 @@ Every report is written atomically to the local feedback queue first. Production
 - Iterative `os.scandir()` discovery and overlapping recursive-root collapse.
 - Aggregate scan-phase timing without per-file report I/O.
 - Bundled metadata reads avoid the generic MkPFS 0.0.9 full-tree `--deep --only` path for normal exFAT-wrapped images.
-- Regression coverage verifies that even a simulated PFSC table with ten million blocks causes only the header plus two 8-byte boundary-offset reads during low-memory view initialization.
+- Regression coverage simulates a PFSC table with ten million blocks and verifies that initialization reads only bounded 64 KiB offset pages rather than materializing a table proportional to image size.
 - Deterministic synthetic scanner regression coverage with 1,024 `.ffpfsc` files.
 - Expanded tests for offline-root preservation, stale-view guards, feedback redaction/transport, branding assets, release gates, scan snapshots and desktop MRO.
 
