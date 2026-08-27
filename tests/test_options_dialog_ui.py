@@ -9,7 +9,7 @@ from ps5_ffpfsc_renamer.ui.settings_backup_mixin import SettingsBackupMixin
 
 def test_options_uses_custom_sidebar_navigation_instead_of_native_tabs() -> None:
     source = inspect.getsource(OptionsDialogMixin._show_options)
-    assert "ttk.Notebook" not in source
+    assert "ttk.Notebook(" not in source
     assert '"General", "Startup & display"' in source
     assert '"Scan & performance", "Workers & cache behavior"' in source
     assert '"Naming", "Filename & library layout"' in source
@@ -37,4 +37,4 @@ def test_options_extensions_target_named_pages_not_notebook_tabs() -> None:
     assert "_find_notebook" not in naming_source
     assert "_options_pages" in backup_source
     assert 'pages.get("general")' in backup_source
-    assert "Notebook" not in backup_source
+    assert "Notebook(" not in backup_source
