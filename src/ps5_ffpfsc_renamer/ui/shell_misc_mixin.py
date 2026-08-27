@@ -9,18 +9,27 @@ from tkinter import ttk
 from .. import __version__
 from ..branding import BRAND_ICON_NAME, BRAND_LOGO_NAME, load_brand_photo
 from ..ffpfsc_reader import mkpfs_source_description
+from ..rename_plan import PlanStatus
 from ..theme import COLORS
 
 
 class ShellMiscMixin:
-    """Small shell actions plus application branding."""
+    """Small shell actions plus application branding and modern command chrome."""
 
     def __init__(self) -> None:
         self._brand_icon_photo: tk.PhotoImage | None = None
         self._brand_sidebar_photo: tk.PhotoImage | None = None
         self._about_window: tk.Toplevel | None = None
+        self._modern_command_bar: tk.Frame | None = None
+        self._sidebar_options_button: ttk.Button | None = None
+        self._rename_plan_button: ttk.Button | None = None
         super().__init__()
         self._apply_window_branding()
+        try:
+            self.ready_var.trace_add("write", lambda *_args: self.after_idle(self._refresh_rename_plan_button))
+        except Exception:
+            pass
+        self.after_idle(self._install_modern_shell)
 
     def _build_ui(self) -> None:
         super()._build_ui()
@@ -36,20 +45,35 @@ class ShellMiscMixin:
         except tk.TclError:
             pass
 
+    @staticmethod
+    def _walk_widgets(widget: tk.Misc):
+        for child in widget.winfo_children():
+            yield child
+            yield from ShellMiscMixin._walk_widgets(child)
+
+    @staticmethod
+    def _widget_text(widget: tk.Misc) -> str:
+        try:
+            return str(widget.cget("text"))
+        except (tk.TclError, AttributeError):
+            return ""
+
+    def _install_modern_shell(self) -> None:
+        self._install_sidebar_options_button()
+        self._remove_legacy_central_options_button()
+        self._install_rename_plan_button()
+        self._install_modern_command_bar()
+        self._refresh_rename_plan_button()
+
     def _install_sidebar_brand(self) -> None:
         # The sidebar has roughly 176 px of usable width after its existing
-        # horizontal padding.  The 640 px lockup at 1/4 scale fits without
+        # horizontal padding. The 640 px lockup at 1/4 scale fits without
         # clipping while remaining readable on standard Windows DPI settings.
         photo = load_brand_photo(self, BRAND_LOGO_NAME, subsample=4)
         if photo is None:
             return
 
-        def walk(widget: tk.Misc):
-            for child in widget.winfo_children():
-                yield child
-                yield from walk(child)
-
-        for candidate in walk(self):
+        for candidate in self._walk_widgets(self):
             if not isinstance(candidate, tk.Frame):
                 continue
             labels = [child for child in candidate.winfo_children() if isinstance(child, tk.Label)]
@@ -79,6 +103,203 @@ class ShellMiscMixin:
             if version is not None:
                 version.pack(fill="x", pady=(4, 0))
             return
+
+    def _install_sidebar_options_button(self) -> None:
+        if self._sidebar_options_button is not None:
+            return
+        for candidate in self._walk_widgets(self):
+            if not isinstance(candidate, tk.Frame):
+                continue
+            texts = {self._widget_text(child) for child in candidate.winfo_children()}
+            if "Metadata DB" not in texts:
+                continue
+            button = ttk.Button(
+                candidate,
+                text="Options",
+                style="SidebarAction.TButton",
+                command=self._show_options,
+            )
+            button.pack(fill="x", padx=12, pady=(2, 12))
+            self._sidebar_options_button = button
+            return
+
+    def _remove_legacy_central_options_button(self) -> None:
+        for candidate in tuple(self._walk_widgets(self)):
+            if not isinstance(candidate, ttk.Button):
+                continue
+            if candidate is self._sidebar_options_button:
+                continue
+            if self._widget_text(candidate).strip() in {"Options", "Options..."}:
+                try:
+                    candidate.destroy()
+                except tk.TclError:
+                    pass
+
+    def _find_results_toolbar(self) -> ttk.Frame | None:
+        for candidate in self._walk_widgets(self):
+            if not isinstance(candidate, ttk.Frame):
+                continue
+            child_texts = {self._widget_text(child) for child in candidate.winfo_children()}
+            if "Search" in child_texts and "Filter" in child_texts:
+                return candidate
+        return None
+
+    def _install_rename_plan_button(self) -> None:
+        if self._rename_plan_button is not None:
+            return
+        toolbar = self._find_results_toolbar()
+        if toolbar is None:
+            return
+
+        result_label = None
+        result_var_name = str(getattr(self, "result_count_var", ""))
+        for child in toolbar.winfo_children():
+            if not isinstance(child, ttk.Label):
+                continue
+            try:
+                if str(child.cget("textvariable")) == result_var_name:
+                    result_label = child
+                    break
+            except tk.TclError:
+                pass
+
+        if result_label is not None:
+            result_label.pack_forget()
+
+        button = ttk.Button(
+            toolbar,
+            text="Apply rename plan",
+            style="RenamePrimary.TButton",
+            command=self._rename,
+        )
+        button.pack(side="right", padx=(12, 0))
+        self._rename_plan_button = button
+
+        if result_label is not None:
+            result_label.pack(side="right", padx=(0, 10))
+
+    def _refresh_rename_plan_button(self) -> None:
+        button = self._rename_plan_button
+        if button is None:
+            return
+        try:
+            ready_count = sum(1 for item in self.plan if item.status is PlanStatus.READY)
+        except Exception:
+            ready_count = 0
+        text = f"Apply rename plan ({ready_count})" if ready_count else "Apply rename plan"
+        try:
+            button.configure(text=text)
+            if ready_count <= 0 or bool(getattr(self, "_scan_active", False)):
+                button.state(["disabled"])
+            else:
+                button.state(["!disabled"])
+        except tk.TclError:
+            pass
+
+    def _style_popup_menu(self, menu: tk.Menu) -> None:
+        try:
+            menu.configure(
+                bg=COLORS["panel"],
+                fg=COLORS["text_soft"],
+                activebackground=COLORS["accent_soft"],
+                activeforeground=COLORS["text"],
+                selectcolor=COLORS["accent_hover"],
+                relief="flat",
+                borderwidth=1,
+                activeborderwidth=0,
+                font=("Segoe UI", 9),
+            )
+        except tk.TclError:
+            return
+
+        try:
+            end = menu.index("end")
+        except tk.TclError:
+            end = None
+        if end is None:
+            return
+        for index in range(int(end) + 1):
+            try:
+                if menu.type(index) != "cascade":
+                    continue
+                child_name = menu.entrycget(index, "menu")
+                child = self.nametowidget(child_name)
+                if isinstance(child, tk.Menu):
+                    self._style_popup_menu(child)
+            except (tk.TclError, KeyError):
+                continue
+
+    def _find_main_header(self) -> ttk.Frame | None:
+        for candidate in self._walk_widgets(self):
+            if not isinstance(candidate, ttk.Label):
+                continue
+            if self._widget_text(candidate) != "Library Renamer":
+                continue
+            master = candidate.master
+            return master if isinstance(master, ttk.Frame) else None
+        return None
+
+    def _install_modern_command_bar(self) -> None:
+        if self._modern_command_bar is not None:
+            return
+        menubar = getattr(self, "_product_menu", None)
+        if not isinstance(menubar, tk.Menu):
+            return
+        header = self._find_main_header()
+        if header is None:
+            return
+        content = header.master
+
+        bar = tk.Frame(content, bg=COLORS["bg"], bd=0, highlightthickness=0)
+        try:
+            bar.pack(fill="x", pady=(0, 7), before=header)
+        except tk.TclError:
+            bar.pack(fill="x", pady=(0, 7))
+
+        try:
+            end = menubar.index("end")
+        except tk.TclError:
+            end = None
+        if end is None:
+            bar.destroy()
+            return
+
+        for index in range(int(end) + 1):
+            try:
+                if menubar.type(index) != "cascade":
+                    continue
+                label = str(menubar.entrycget(index, "label"))
+                menu_name = menubar.entrycget(index, "menu")
+                submenu = self.nametowidget(menu_name)
+            except (tk.TclError, KeyError):
+                continue
+            if not isinstance(submenu, tk.Menu):
+                continue
+            self._style_popup_menu(submenu)
+            button = tk.Menubutton(
+                bar,
+                text=label,
+                menu=submenu,
+                indicatoron=False,
+                bg=COLORS["bg"],
+                fg=COLORS["text_soft"],
+                activebackground=COLORS["panel_hover"],
+                activeforeground=COLORS["text"],
+                relief="flat",
+                bd=0,
+                highlightthickness=0,
+                padx=9,
+                pady=5,
+                font=("Segoe UI", 9),
+                cursor="hand2",
+            )
+            button.pack(side="left", padx=(0, 2))
+
+        try:
+            self.configure(menu="")
+        except tk.TclError:
+            pass
+        self._modern_command_bar = bar
 
     def _select_all_rows(self) -> None:
         rows = self.tree.get_children()
@@ -126,7 +347,7 @@ class ShellMiscMixin:
             label = tk.Label(
                 outer,
                 image=logo,
-                bg=COLORS["background"],
+                bg=COLORS["bg"],
                 bd=0,
                 highlightthickness=0,
             )
