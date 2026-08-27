@@ -4,7 +4,12 @@ from dataclasses import replace
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
-from ..naming import FOLDER_ALWAYS_NEW, FOLDER_FILE_ONLY
+from ..naming import (
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_ROOT_FLAT,
+    normalize_folder_handling,
+)
 from ..naming_profiles import (
     BUNDLED_PROFILES,
     NamingProfile,
@@ -55,11 +60,12 @@ class NamingProfilesMixin:
             self.naming_profiles_button.pack(side="right")
 
     def _folder_label(self, mode: str) -> str:
-        if mode == FOLDER_FILE_ONLY:
-            return self.FOLDER_FILE_ONLY_LABEL
-        if mode == FOLDER_ALWAYS_NEW:
-            return self.FOLDER_ALWAYS_NEW_LABEL
-        return self.FOLDER_SMART_LABEL
+        normalized = normalize_folder_handling(mode)
+        if normalized == FOLDER_ROOT_FLAT:
+            return self.FOLDER_ROOT_FLAT_LABEL
+        if normalized == FOLDER_KEEP_STRUCTURE:
+            return self.FOLDER_KEEP_STRUCTURE_LABEL
+        return self.FOLDER_ONE_PER_GAME_LABEL
 
     def _profile_from_current(self, name: str) -> NamingProfile:
         options = self._current_naming_options()
@@ -83,12 +89,11 @@ class NamingProfilesMixin:
             self.VERSION_COMPACT if profile.compact_version else self.VERSION_ORIGINAL
         )
         self.version_prefix_var.set(profile.version_prefix)
-        self.folder_mode_var.set(self._folder_label(profile.folder_handling))
+        self._set_folder_mode(profile.folder_handling)
         self.component_order[:] = list(profile.component_order)
         self._filename_separator = profile.separator
         self.preset_var.set(self.PRESET_CUSTOM)
         self._render_order_editor()
-        self._update_folder_help()
         self._output_setting_changed()
         self._queue_save_preferences()
         self.status_var.set(f"Naming profile applied: {profile.name}")
@@ -211,7 +216,7 @@ class NamingProfilesMixin:
                 f"Version: {'compact' if profile.compact_version else 'original'}"
                 f"{' + prefix v' if profile.version_prefix and profile.include_version else ''}\n"
                 f"Separator: {self._separator_display(profile.separator)}\n"
-                f"Folder mode: {self._folder_label(profile.folder_handling)}"
+                f"Organization: {self._folder_label(profile.folder_handling)}"
             )
 
         def apply_selected() -> None:
