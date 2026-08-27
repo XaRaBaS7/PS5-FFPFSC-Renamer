@@ -125,6 +125,20 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         foreground=[("disabled", COLORS["muted_dark"])],
     )
     style.configure(
+        "RenamePrimary.TButton",
+        background=COLORS["success"],
+        foreground="#081711",
+        borderwidth=0,
+        focusthickness=0,
+        padding=(15, 8),
+        font=("Segoe UI", 10, "bold"),
+    )
+    style.map(
+        "RenamePrimary.TButton",
+        background=[("active", "#72d8b8"), ("disabled", COLORS["panel_alt"])],
+        foreground=[("disabled", COLORS["muted_dark"])],
+    )
+    style.configure(
         "Secondary.TButton",
         background=COLORS["panel_alt"],
         foreground=COLORS["text_soft"],
@@ -133,6 +147,20 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         padding=(12, 8),
     )
     style.map("Secondary.TButton", background=[("active", COLORS["panel_hover"])])
+    style.configure(
+        "SidebarAction.TButton",
+        background=COLORS["panel_alt"],
+        foreground=COLORS["text_soft"],
+        bordercolor=COLORS["border"],
+        borderwidth=1,
+        padding=(10, 7),
+        font=("Segoe UI", 9, "bold"),
+    )
+    style.map(
+        "SidebarAction.TButton",
+        background=[("active", COLORS["panel_hover"])],
+        foreground=[("active", COLORS["text"])],
+    )
     style.configure(
         "Danger.TButton",
         background=COLORS["danger_soft"],
@@ -146,6 +174,31 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         "Danger.TButton",
         background=[("active", COLORS["danger"]), ("disabled", COLORS["panel_alt"])],
         foreground=[("active", "#ffffff"), ("disabled", COLORS["muted_dark"])],
+    )
+
+    # Tk's native menubar cannot be styled reliably on Windows. The desktop
+    # shell uses a custom dark command row instead, while popup menus inherit
+    # the same palette. Notebook tabs remain ttk widgets and are explicitly
+    # themed here so Options stays readable on every supported Windows theme.
+    style.configure(
+        "TNotebook",
+        background=COLORS["bg"],
+        borderwidth=0,
+        tabmargins=(0, 0, 0, 0),
+    )
+    style.configure(
+        "TNotebook.Tab",
+        background=COLORS["panel_alt"],
+        foreground=COLORS["text_soft"],
+        padding=(14, 8),
+        borderwidth=1,
+        font=("Segoe UI", 9, "bold"),
+    )
+    style.map(
+        "TNotebook.Tab",
+        background=[("selected", COLORS["accent"]), ("active", COLORS["panel_hover"])],
+        foreground=[("selected", "#ffffff"), ("active", COLORS["text"])],
+        bordercolor=[("selected", COLORS["accent_hover"]), ("active", COLORS["border"])],
     )
 
     style.configure(
