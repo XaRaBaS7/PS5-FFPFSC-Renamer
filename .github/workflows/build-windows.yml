@@ -64,10 +64,11 @@ jobs:
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
           Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
 
-          # MkPFS is GPL-3.0. Keep the exact source distribution used by the
-          # bundled helper available inside the release for compliance.
+          # MkPFS is GPL-3.0. Keep both the exact upstream source distribution
+          # and the wrapper source used to build the bundled helper available.
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
+          Copy-Item ".\tools\mkpfs_helper.py" "$app\source\third-party\mkpfs_helper.py"
 
           # Branding is already bundled by PyInstaller under _internal via
           # --add-data. Do not duplicate assets or the build-time app-icon.png
