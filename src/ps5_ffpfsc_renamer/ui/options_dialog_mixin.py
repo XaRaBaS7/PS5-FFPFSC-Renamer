@@ -4,12 +4,18 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from ..ffpfsc_reader import mkpfs_source_description
+from ..naming import (
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_ROOT_FLAT,
+    normalize_folder_handling,
+)
 from ..settings import AppSettings
 from ..theme import COLORS
 
 
 class OptionsDialogMixin:
-    """Central General/Performance/Naming/Cache & Engine options window."""
+    """Modern sidebar-based options window for desktop preferences."""
 
     def _show_options(self) -> None:
         if self._scan_active:
@@ -22,34 +28,98 @@ class OptionsDialogMixin:
 
         window = tk.Toplevel(self)
         window.title("PS5 FFPFSC Renamer — Options")
-        window.geometry("790x600")
-        window.minsize(700, 520)
+        window.geometry("940x680")
+        window.minsize(860, 620)
         window.transient(self)
         window.grab_set()
         window.configure(bg=COLORS["bg"])
 
-        outer = ttk.Frame(window, padding=14)
-        outer.pack(fill="both", expand=True)
-        header = ttk.Frame(outer)
-        header.pack(fill="x", pady=(0, 10))
-        ttk.Label(header, text="Options", style="Title.TLabel").pack(side="left")
-        ttk.Label(
+        try:
+            icon = getattr(self, "_brand_icon_photo", None)
+            if icon is not None:
+                window.iconphoto(True, icon)
+        except tk.TclError:
+            pass
+
+        outer = tk.Frame(window, bg=COLORS["bg"])
+        outer.pack(fill="both", expand=True, padx=18, pady=16)
+
+        header = tk.Frame(outer, bg=COLORS["bg"])
+        header.pack(fill="x", pady=(0, 14))
+        title_block = tk.Frame(header, bg=COLORS["bg"])
+        title_block.pack(side="left", fill="x", expand=True)
+        tk.Label(
+            title_block,
+            text="Options",
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            font=("Segoe UI", 22, "bold"),
+            anchor="w",
+        ).pack(fill="x")
+        tk.Label(
+            title_block,
+            text="Configure startup, scanning, naming and maintenance without leaving the desktop workflow.",
+            bg=COLORS["bg"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 9),
+            anchor="w",
+        ).pack(fill="x", pady=(2, 0))
+
+        badge = tk.Label(
             header,
-            text="Changes are saved to your local settings file.",
-            style="Subtitle.TLabel",
-        ).pack(side="right")
+            text="LOCAL SETTINGS",
+            bg=COLORS["accent_soft"],
+            fg=COLORS["accent_hover"],
+            font=("Segoe UI", 8, "bold"),
+            padx=10,
+            pady=5,
+        )
+        badge.pack(side="right", padx=(12, 0))
 
-        notebook = ttk.Notebook(outer)
-        notebook.pack(fill="both", expand=True)
+        body = tk.Frame(outer, bg=COLORS["bg"])
+        body.pack(fill="both", expand=True)
 
-        general = ttk.Frame(notebook, padding=16)
-        performance = ttk.Frame(notebook, padding=16)
-        naming = ttk.Frame(notebook, padding=16)
-        maintenance = ttk.Frame(notebook, padding=16)
-        notebook.add(general, text="General")
-        notebook.add(performance, text="Scan & Performance")
-        notebook.add(naming, text="Naming")
-        notebook.add(maintenance, text="Cache & Engine")
+        nav = tk.Frame(
+            body,
+            bg=COLORS["sidebar"],
+            width=228,
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
+        nav.pack(side="left", fill="y", padx=(0, 12))
+        nav.pack_propagate(False)
+
+        tk.Label(
+            nav,
+            text="SETTINGS",
+            bg=COLORS["sidebar"],
+            fg=COLORS["muted_dark"],
+            font=("Segoe UI", 8, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=14, pady=(15, 8))
+
+        content_shell = tk.Frame(
+            body,
+            bg=COLORS["panel"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
+        content_shell.pack(side="left", fill="both", expand=True)
+
+        general = ttk.Frame(content_shell, style="Card.TFrame", padding=18)
+        performance = ttk.Frame(content_shell, style="Card.TFrame", padding=18)
+        naming = ttk.Frame(content_shell, style="Card.TFrame", padding=18)
+        maintenance = ttk.Frame(content_shell, style="Card.TFrame", padding=18)
+        pages = {
+            "general": general,
+            "performance": performance,
+            "naming": naming,
+            "maintenance": maintenance,
+        }
+        # Extension mixins add their extra controls to these pages after the
+        # base dialog is created. Keeping an explicit page registry avoids
+        # coupling them to a native ttk.Notebook/tab implementation.
+        window._options_pages = pages  # type: ignore[attr-defined]
 
         auto_start = tk.BooleanVar(value=self._autoscan_on_start)
         auto_browse = tk.BooleanVar(value=self._autoscan_on_browse)
@@ -61,130 +131,277 @@ class OptionsDialogMixin:
         worker = tk.StringVar(value=self.worker_var.get())
 
         preset = tk.StringVar(value=self.preset_var.get())
-        folder_mode = tk.StringVar(value=self.folder_mode_var.get())
+        folder_mode = tk.StringVar(value=self._folder_mode())
         version_format = tk.StringVar(value=self.version_format_var.get())
         version_prefix = tk.BooleanVar(value=bool(self.version_prefix_var.get()))
         include_id = tk.BooleanVar(value=bool(self.include_id_var.get()))
         include_title = tk.BooleanVar(value=bool(self.include_title_var.get()))
         include_version = tk.BooleanVar(value=bool(self.include_version_var.get()))
 
-        def section(parent: ttk.Frame, title: str, note: str) -> None:
+        def page_header(parent: ttk.Frame, title: str, note: str) -> None:
             ttk.Label(parent, text=title, style="CardTitle.TLabel").pack(anchor="w")
-            ttk.Label(parent, text=note, style="CardMuted.TLabel", wraplength=700).pack(
-                anchor="w", pady=(2, 10)
-            )
+            ttk.Label(
+                parent,
+                text=note,
+                style="CardMuted.TLabel",
+                wraplength=620,
+                justify="left",
+            ).pack(anchor="w", pady=(3, 14))
 
-        section(
+        def section(parent: ttk.Frame, title: str, note: str | None = None) -> ttk.Frame:
+            box = ttk.Frame(parent, style="Card.TFrame")
+            box.pack(fill="x", pady=(0, 14))
+            ttk.Label(box, text=title, style="CardTitle.TLabel").pack(anchor="w")
+            if note:
+                ttk.Label(
+                    box,
+                    text=note,
+                    style="CardMuted.TLabel",
+                    wraplength=610,
+                    justify="left",
+                ).pack(anchor="w", pady=(2, 8))
+            return box
+
+        # ------------------------------- General
+        page_header(
             general,
-            "Startup & library behavior",
-            "Control when scans start automatically and how paths are displayed.",
+            "General",
+            "Choose what the application does automatically and how the library is presented.",
+        )
+        startup_box = section(
+            general,
+            "Startup automation",
+            "Automatic scans only read files when required; unchanged entries continue to use the metadata cache.",
         )
         for text, variable in (
-            ("Automatically scan saved folders when the app starts", auto_start),
-            ("Automatically scan after Browse", auto_browse),
-            ("Automatically scan after Add folder", auto_add),
+            ("Scan saved folders when the app starts", auto_start),
+            ("Scan immediately after Browse", auto_browse),
+            ("Scan immediately after Add folder", auto_add),
+        ):
+            ttk.Checkbutton(startup_box, text=text, variable=variable).pack(anchor="w", pady=3)
+
+        display_box = section(general, "Window & result display")
+        for text, variable in (
             ("Remember window size and position", remember_geometry),
             ("Show compact relative paths in the results table", relative_paths),
         ):
-            ttk.Checkbutton(general, text=text, variable=variable).pack(anchor="w", pady=4)
+            ttk.Checkbutton(display_box, text=text, variable=variable).pack(anchor="w", pady=3)
 
-        ttk.Separator(general).pack(fill="x", pady=14)
         ttk.Label(
             general,
-            text="Manual scan is always available with Scan now or F5, regardless of these settings.",
+            text="Manual scan is always available with Scan now or F5.",
             style="CardInfo.TLabel",
-            wraplength=690,
+            wraplength=610,
         ).pack(anchor="w")
 
-        section(
+        # ------------------------------- Performance
+        page_header(
+            performance,
+            "Scan & performance",
+            "Keep HDD libraries conservative; increase parallelism only when the storage can sustain it.",
+        )
+        scan_box = section(
             performance,
             "Scan strategy",
-            "The metadata reader is primarily storage-bound. Use conservative parallelism on HDDs and more workers only on SSD/NVMe storage.",
+            "Metadata analysis is storage-bound. One worker remains the safest profile for mechanical disks.",
         )
         ttk.Checkbutton(
-            performance,
+            scan_box,
             text="Include subfolders",
             variable=recursive,
-        ).pack(anchor="w", pady=(0, 10))
-        worker_row = ttk.Frame(performance)
-        worker_row.pack(fill="x", pady=(0, 10))
+        ).pack(anchor="w", pady=(0, 8))
+
+        worker_row = ttk.Frame(scan_box, style="Card.TFrame")
+        worker_row.pack(fill="x")
         ttk.Label(worker_row, text="Workers", style="CardMuted.TLabel").pack(side="left")
         ttk.Combobox(
             worker_row,
             textvariable=worker,
             values=("1 (HDD / safest)", "2", "4 (SSD / NVMe)", "Auto"),
             state="readonly",
-            width=20,
+            width=21,
             style="Performance.TCombobox",
         ).pack(side="left", padx=(10, 0))
-        ttk.Checkbutton(
+
+        cache_box = section(
             performance,
-            text="Prune cache entries for missing files when the app starts",
+            "Cache behavior",
+            "Cache pruning is skipped whenever a configured USB/NAS root is unavailable, so disconnected libraries are not treated as deleted.",
+        )
+        ttk.Checkbutton(
+            cache_box,
+            text="Prune cache entries for files confirmed missing at startup",
             variable=auto_prune,
-        ).pack(anchor="w", pady=4)
+        ).pack(anchor="w", pady=3)
         ttk.Label(
             performance,
-            text="Unchanged verified files and unchanged PARTIAL/ERROR files use the local cache, so repeat scans avoid unnecessary MkPFS reads.",
+            text=(
+                "Unchanged VERIFIED and unchanged PARTIAL/ERROR records stay cached, reducing repeated MkPFS reads."
+            ),
             style="CardInfo.TLabel",
-            wraplength=690,
-        ).pack(anchor="w", pady=(14, 0))
+            wraplength=610,
+        ).pack(anchor="w")
 
-        section(
+        # ------------------------------- Naming
+        page_header(
             naming,
-            "Default filename behavior",
-            "These are the same settings as Filename Builder. You can still adjust component order directly in the main window.",
+            "Naming",
+            "Set filename defaults and choose the final library organization. These settings update the main Filename Builder too.",
         )
-        grid = ttk.Frame(naming)
-        grid.pack(fill="x")
-        for col in range(2):
-            grid.columnconfigure(col, weight=1)
+        filename_box = section(naming, "Filename defaults")
+        filename_grid = ttk.Frame(filename_box, style="Card.TFrame")
+        filename_grid.pack(fill="x")
+        filename_grid.columnconfigure(0, weight=1)
+        filename_grid.columnconfigure(1, weight=1)
 
-        ttk.Label(grid, text="Preset", style="CardMuted.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(filename_grid, text="Preset", style="CardMuted.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
         ttk.Combobox(
-            grid,
+            filename_grid,
             textvariable=preset,
-            values=(self.PRESET_PPSA, self.PRESET_TITLE, self.PRESET_FULL, self.PRESET_CUSTOM),
+            values=tuple(self.preset_combo.cget("values")),
             state="readonly",
+            style="Performance.TCombobox",
             width=28,
-        ).grid(row=1, column=0, sticky="ew", padx=(0, 8), pady=(3, 12))
+        ).grid(row=1, column=0, sticky="ew", padx=(0, 8), pady=(3, 10))
 
-        ttk.Label(grid, text="Folder handling", style="CardMuted.TLabel").grid(row=0, column=1, sticky="w")
+        ttk.Label(filename_grid, text="Version format", style="CardMuted.TLabel").grid(
+            row=0, column=1, sticky="w", padx=(8, 0)
+        )
         ttk.Combobox(
-            grid,
-            textvariable=folder_mode,
-            values=tuple(self.folder_mode_combo.cget("values")),
-            state="readonly",
-            width=28,
-        ).grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(3, 12))
-
-        ttk.Label(grid, text="Version format", style="CardMuted.TLabel").grid(row=2, column=0, sticky="w")
-        ttk.Combobox(
-            grid,
+            filename_grid,
             textvariable=version_format,
             values=(self.VERSION_COMPACT, self.VERSION_ORIGINAL),
             state="readonly",
+            style="Performance.TCombobox",
             width=28,
-        ).grid(row=3, column=0, sticky="ew", padx=(0, 8), pady=(3, 12))
-        ttk.Checkbutton(
-            grid,
-            text="Prefix version with 'v'",
-            variable=version_prefix,
-        ).grid(row=3, column=1, sticky="w", padx=(8, 0), pady=(3, 12))
+        ).grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(3, 10))
 
-        components = ttk.LabelFrame(naming, text="Filename components", padding=10)
-        components.pack(fill="x", pady=(10, 0))
-        ttk.Checkbutton(components, text="PPSA / Title ID", variable=include_id).pack(side="left")
-        ttk.Checkbutton(components, text="Game title", variable=include_title).pack(
-            side="left", padx=(18, 0)
+        component_row = ttk.Frame(filename_box, style="Card.TFrame")
+        component_row.pack(fill="x", pady=(2, 0))
+        ttk.Checkbutton(component_row, text="PPSA / Title ID", variable=include_id).pack(side="left")
+        ttk.Checkbutton(component_row, text="Game title", variable=include_title).pack(
+            side="left", padx=(16, 0)
         )
-        ttk.Checkbutton(components, text="Version", variable=include_version).pack(
-            side="left", padx=(18, 0)
+        ttk.Checkbutton(component_row, text="Version", variable=include_version).pack(
+            side="left", padx=(16, 0)
+        )
+        ttk.Checkbutton(component_row, text="Prefix version with 'v'", variable=version_prefix).pack(
+            side="left", padx=(16, 0)
         )
 
-        section(
+        organization_box = section(
+            naming,
+            "Library organization",
+            "Choose the result you want on disk. The selected library root itself is never renamed.",
+        )
+        organization_cards: dict[str, dict[str, tk.Widget]] = {}
+
+        def refresh_organization_cards() -> None:
+            selected = normalize_folder_handling(folder_mode.get())
+            for mode, widgets in organization_cards.items():
+                active = mode == selected
+                background = COLORS["accent_soft"] if active else COLORS["surface"]
+                border = COLORS["accent"] if active else COLORS["border"]
+                widgets["frame"].configure(bg=background, highlightbackground=border)
+                widgets["indicator"].configure(
+                    text="●" if active else "○",
+                    bg=background,
+                    fg=COLORS["accent_hover"] if active else COLORS["muted"],
+                )
+                widgets["title"].configure(bg=background)
+                widgets["description"].configure(
+                    bg=background,
+                    fg=COLORS["text_soft"] if active else COLORS["muted"],
+                )
+
+        def select_organization(mode: str) -> None:
+            folder_mode.set(normalize_folder_handling(mode))
+            refresh_organization_cards()
+
+        organization_defs = (
+            (
+                FOLDER_ONE_PER_GAME,
+                self.FOLDER_ONE_PER_GAME_LABEL,
+                "Each .ffpfsc ends in its own named folder directly under the library root.",
+            ),
+            (
+                FOLDER_ROOT_FLAT,
+                self.FOLDER_ROOT_FLAT_LABEL,
+                "Every .ffpfsc ends directly in the library root, with no per-game folders.",
+            ),
+            (
+                FOLDER_KEEP_STRUCTURE,
+                self.FOLDER_KEEP_STRUCTURE_LABEL,
+                "Rename files where they are now; do not move, create or rename folders.",
+            ),
+        )
+        for mode, title, description in organization_defs:
+            frame = tk.Frame(
+                organization_box,
+                bg=COLORS["surface"],
+                highlightthickness=1,
+                highlightbackground=COLORS["border"],
+                cursor="hand2",
+            )
+            frame.pack(fill="x", pady=(0, 6))
+            indicator = tk.Label(
+                frame,
+                text="○",
+                bg=COLORS["surface"],
+                fg=COLORS["muted"],
+                font=("Segoe UI", 11, "bold"),
+                cursor="hand2",
+            )
+            indicator.pack(side="left", padx=(10, 8), pady=8)
+            text_box = tk.Frame(frame, bg=COLORS["surface"], cursor="hand2")
+            text_box.pack(side="left", fill="x", expand=True, pady=7)
+            title_label = tk.Label(
+                text_box,
+                text=title,
+                bg=COLORS["surface"],
+                fg=COLORS["text"],
+                font=("Segoe UI", 9, "bold"),
+                anchor="w",
+                cursor="hand2",
+            )
+            title_label.pack(fill="x")
+            description_label = tk.Label(
+                text_box,
+                text=description,
+                bg=COLORS["surface"],
+                fg=COLORS["muted"],
+                font=("Segoe UI", 8),
+                anchor="w",
+                justify="left",
+                cursor="hand2",
+            )
+            description_label.pack(fill="x", pady=(1, 0))
+            widgets = (frame, indicator, text_box, title_label, description_label)
+            for widget in widgets:
+                widget.bind(
+                    "<Button-1>",
+                    lambda _event, selected=mode: select_organization(selected),
+                )
+            organization_cards[mode] = {
+                "frame": frame,
+                "indicator": indicator,
+                "title": title_label,
+                "description": description_label,
+            }
+        refresh_organization_cards()
+
+        # ------------------------------- Maintenance
+        page_header(
             maintenance,
-            "Cache & MkPFS",
-            "Maintenance actions are kept here so the main library screen stays focused on results.",
+            "Cache & engine",
+            "Inspect local metadata storage and the MkPFS source used for uncached files.",
+        )
+        metadata_box = section(
+            maintenance,
+            "Metadata cache",
+            "The cache stores parsed metadata and failure records only; it does not copy FFPFSC payload data.",
         )
         try:
             stats = self.cache.stats()
@@ -194,10 +411,10 @@ class OptionsDialogMixin:
             )
         except Exception:
             cache_text = "Cache statistics unavailable"
-        ttk.Label(maintenance, text=cache_text, style="CardInfo.TLabel").pack(anchor="w")
+        ttk.Label(metadata_box, text=cache_text, style="CardInfo.TLabel").pack(anchor="w")
 
-        cache_buttons = ttk.Frame(maintenance)
-        cache_buttons.pack(fill="x", pady=(12, 18))
+        cache_buttons = ttk.Frame(metadata_box, style="Card.TFrame")
+        cache_buttons.pack(fill="x", pady=(10, 0))
         ttk.Button(
             cache_buttons,
             text="Cache Manager...",
@@ -211,23 +428,134 @@ class OptionsDialogMixin:
             command=self._open_app_data_folder,
         ).pack(side="left", padx=(8, 0))
 
-        ttk.Separator(maintenance).pack(fill="x", pady=(0, 14))
-        ttk.Label(maintenance, text="MkPFS engine", style="CardTitle.TLabel").pack(anchor="w")
-        ttk.Label(
+        engine_box = section(
             maintenance,
+            "MkPFS engine",
+            "The bundled release helper uses the low-memory metadata path when available.",
+        )
+        engine_status = tk.Frame(
+            engine_box,
+            bg=COLORS["surface"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
+        engine_status.pack(fill="x", pady=(0, 10))
+        tk.Label(
+            engine_status,
+            text="ACTIVE SOURCE",
+            bg=COLORS["surface"],
+            fg=COLORS["muted_dark"],
+            font=("Segoe UI", 7, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=10, pady=(7, 1))
+        tk.Label(
+            engine_status,
             text=mkpfs_source_description(),
-            style="CardInfo.TLabel",
-            wraplength=690,
-        ).pack(anchor="w", pady=(4, 10))
+            bg=COLORS["surface"],
+            fg=COLORS["text_soft"],
+            font=("Segoe UI", 9),
+            anchor="w",
+            justify="left",
+            wraplength=590,
+        ).pack(fill="x", padx=10, pady=(0, 7))
         ttk.Button(
-            maintenance,
+            engine_box,
             text="Configure MkPFS engine...",
             image=self._icon("engine", 16),
             compound="left",
             command=lambda: (window.grab_release(), self._show_mkpfs_settings()),
         ).pack(anchor="w")
 
-        buttons = ttk.Frame(outer)
+        nav_items: dict[str, dict[str, tk.Widget]] = {}
+        nav_definitions = (
+            ("general", "General", "Startup & display"),
+            ("performance", "Scan & performance", "Workers & cache behavior"),
+            ("naming", "Naming", "Filename & library layout"),
+            ("maintenance", "Cache & engine", "Maintenance & MkPFS"),
+        )
+        active_page = tk.StringVar(value="general")
+
+        def show_page(key: str) -> None:
+            if key not in pages:
+                return
+            active_page.set(key)
+            for page_key, page in pages.items():
+                if page_key == key:
+                    page.pack(fill="both", expand=True)
+                else:
+                    page.pack_forget()
+            for item_key, widgets in nav_items.items():
+                selected = item_key == key
+                background = COLORS["accent_soft"] if selected else COLORS["sidebar"]
+                widgets["frame"].configure(
+                    bg=background,
+                    highlightbackground=COLORS["accent"] if selected else COLORS["sidebar"],
+                )
+                widgets["bar"].configure(
+                    bg=COLORS["accent"] if selected else background
+                )
+                widgets["title"].configure(
+                    bg=background,
+                    fg=COLORS["accent_hover"] if selected else COLORS["text_soft"],
+                )
+                widgets["note"].configure(bg=background)
+
+        for key, title, note in nav_definitions:
+            item = tk.Frame(
+                nav,
+                bg=COLORS["sidebar"],
+                highlightthickness=1,
+                highlightbackground=COLORS["sidebar"],
+                cursor="hand2",
+            )
+            item.pack(fill="x", padx=8, pady=2)
+            bar = tk.Frame(item, bg=COLORS["sidebar"], width=3)
+            bar.pack(side="left", fill="y")
+            text = tk.Frame(item, bg=COLORS["sidebar"], cursor="hand2")
+            text.pack(side="left", fill="both", expand=True, padx=10, pady=8)
+            title_label = tk.Label(
+                text,
+                text=title,
+                bg=COLORS["sidebar"],
+                fg=COLORS["text_soft"],
+                font=("Segoe UI", 9, "bold"),
+                anchor="w",
+                cursor="hand2",
+            )
+            title_label.pack(fill="x")
+            note_label = tk.Label(
+                text,
+                text=note,
+                bg=COLORS["sidebar"],
+                fg=COLORS["muted_dark"],
+                font=("Segoe UI", 8),
+                anchor="w",
+                cursor="hand2",
+            )
+            note_label.pack(fill="x", pady=(1, 0))
+            for widget in (item, bar, text, title_label, note_label):
+                widget.bind("<Button-1>", lambda _event, target=key: show_page(target))
+            nav_items[key] = {
+                "frame": item,
+                "bar": bar,
+                "title": title_label,
+                "note": note_label,
+            }
+
+        tk.Label(
+            nav,
+            text="Changes are saved only when you click Save.",
+            bg=COLORS["sidebar"],
+            fg=COLORS["muted_dark"],
+            font=("Segoe UI", 8),
+            wraplength=190,
+            justify="left",
+            anchor="w",
+        ).pack(side="bottom", fill="x", padx=14, pady=14)
+
+        show_page("general")
+
+        buttons = tk.Frame(outer, bg=COLORS["bg"])
         buttons.pack(fill="x", pady=(12, 0))
 
         def restore_defaults() -> None:
@@ -241,7 +569,7 @@ class OptionsDialogMixin:
             recursive.set(defaults.recursive)
             worker.set(defaults.worker)
             preset.set(defaults.preset)
-            folder_mode.set(defaults.folder_mode)
+            select_organization(defaults.folder_mode)
             version_format.set(defaults.version_format)
             version_prefix.set(defaults.version_prefix)
             include_id.set(defaults.include_title_id)
@@ -265,7 +593,7 @@ class OptionsDialogMixin:
             self.include_version_var.set(bool(include_version.get()))
             self.version_format_var.set(version_format.get())
             self.version_prefix_var.set(bool(version_prefix.get()))
-            self.folder_mode_var.set(folder_mode.get())
+            self._set_folder_mode(folder_mode.get())
             self._update_folder_help()
             self._refresh_output_preview()
             self._rebuild_output_plan(option_change=True)
@@ -279,13 +607,25 @@ class OptionsDialogMixin:
             if close:
                 window.destroy()
 
-        ttk.Button(buttons, text="Restore defaults", command=restore_defaults).pack(side="left")
-        ttk.Button(buttons, text="Cancel", command=window.destroy).pack(side="right")
         ttk.Button(
             buttons,
-            text="Save",
+            text="Restore defaults",
+            style="Secondary.TButton",
+            command=restore_defaults,
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Cancel",
+            style="Secondary.TButton",
+            command=window.destroy,
+        ).pack(side="right")
+        ttk.Button(
+            buttons,
+            text="Save changes",
             image=self._icon("options", 16, COLORS["accent_hover"]),
             compound="left",
             style="Primary.TButton",
             command=apply,
         ).pack(side="right", padx=(0, 8))
+
+        window.bind("<Escape>", lambda _event: window.destroy())
