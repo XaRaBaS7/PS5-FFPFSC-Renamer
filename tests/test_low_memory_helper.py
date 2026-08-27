@@ -68,11 +68,12 @@ def test_low_memory_view_does_not_materialize_pfsc_offset_list(tmp_path: Path) -
     try:
         assert view._block_count > 0
         assert not hasattr(view, "_offsets")
+        assert len(view._offset_page_cache) <= mkpfs_helper._OFFSET_CACHE_PAGES
     finally:
         handle.close()
 
 
-def test_low_memory_view_reads_only_boundary_offsets_for_large_table(monkeypatch) -> None:
+def test_low_memory_view_pages_large_offset_table_without_materializing_it(monkeypatch) -> None:
     block_count = 10_000_000
     block_offsets_offset = consts.PFSC_BLOCK_OFFSETS_OFFSET
     data_offset = 100_000_000
@@ -91,13 +92,16 @@ def test_low_memory_view_reads_only_boundary_offsets_for_large_table(monkeypatch
         reads.append(size)
         if size == consts.PFSC_HEADER_SIZE:
             return b"\0" * size
-        assert size == 8
-        index = (offset - base - block_offsets_offset) // 8
-        if index == 0:
-            return struct.pack("<Q", data_offset)
-        if index == block_count:
-            return struct.pack("<Q", stored_size)
-        raise AssertionError(f"unexpected PFSC offset read: {index}")
+        assert 0 < size <= mkpfs_helper._OFFSET_PAGE_BYTES
+        page_start = offset - base - block_offsets_offset
+        page = bytearray(size)
+        first_entry = 0
+        final_entry = block_count * 8
+        if page_start <= first_entry < page_start + size:
+            struct.pack_into("<Q", page, first_entry - page_start, data_offset)
+        if page_start <= final_entry < page_start + size:
+            struct.pack_into("<Q", page, final_entry - page_start, stored_size)
+        return bytes(page)
 
     monkeypatch.setattr(
         mkpfs_helper.mkpfs_pfs,
@@ -116,7 +120,10 @@ def test_low_memory_view_reads_only_boundary_offsets_for_large_table(monkeypatch
 
     assert view._block_count == block_count
     assert not hasattr(view, "_offsets")
-    assert reads == [consts.PFSC_HEADER_SIZE, 8, 8]
+    assert reads[0] == consts.PFSC_HEADER_SIZE
+    assert max(reads[1:]) <= mkpfs_helper._OFFSET_PAGE_BYTES
+    assert sum(reads[1:]) <= mkpfs_helper._OFFSET_PAGE_BYTES * 2
+    assert len(view._offset_page_cache) <= mkpfs_helper._OFFSET_CACHE_PAGES
 
 
 def test_frozen_reader_uses_bundled_param_command(tmp_path: Path, monkeypatch) -> None:
