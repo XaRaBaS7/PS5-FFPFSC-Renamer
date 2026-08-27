@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
+import struct
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
+from mkpfs import consts
 from ps5_ffpfsc_renamer import ffpfsc_reader
 from tools import mkpfs_helper
 
@@ -66,6 +70,53 @@ def test_low_memory_view_does_not_materialize_pfsc_offset_list(tmp_path: Path) -
         assert not hasattr(view, "_offsets")
     finally:
         handle.close()
+
+
+def test_low_memory_view_reads_only_boundary_offsets_for_large_table(monkeypatch) -> None:
+    block_count = 10_000_000
+    block_offsets_offset = consts.PFSC_BLOCK_OFFSETS_OFFSET
+    data_offset = 100_000_000
+    stored_size = 900_000_000
+    header = SimpleNamespace(block_size=0x10000)
+    inode = SimpleNamespace(
+        db=[1],
+        is_compressed=True,
+        logical_size=block_count * consts.PFSC_LOGICAL_BLOCK_SIZE,
+        stored_size=stored_size,
+    )
+    base = header.block_size
+    reads: list[int] = []
+
+    def _fake_raw(self, offset: int, size: int) -> bytes:
+        reads.append(size)
+        if size == consts.PFSC_HEADER_SIZE:
+            return b"\0" * size
+        assert size == 8
+        index = (offset - base - block_offsets_offset) // 8
+        if index == 0:
+            return struct.pack("<Q", data_offset)
+        if index == block_count:
+            return struct.pack("<Q", stored_size)
+        raise AssertionError(f"unexpected PFSC offset read: {index}")
+
+    monkeypatch.setattr(
+        mkpfs_helper.mkpfs_pfs,
+        "_parse_pfsc_header",
+        lambda _head: (
+            consts.PFSC_LOGICAL_BLOCK_SIZE,
+            block_count,
+            block_offsets_offset,
+            data_offset,
+            inode.logical_size,
+        ),
+    )
+    monkeypatch.setattr(mkpfs_helper._LowMemoryLogicalFileView, "_raw", _fake_raw)
+
+    view = mkpfs_helper._LowMemoryLogicalFileView(io.BytesIO(), header, inode)
+
+    assert view._block_count == block_count
+    assert not hasattr(view, "_offsets")
+    assert reads == [consts.PFSC_HEADER_SIZE, 8, 8]
 
 
 def test_frozen_reader_uses_bundled_param_command(tmp_path: Path, monkeypatch) -> None:
