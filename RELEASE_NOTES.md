@@ -9,10 +9,18 @@ The downloadable Windows package for this same v0.5.0 release is refreshed from 
 - Fixed automatic startup scans so the modern shell no longer configures a stale, already-destroyed central `Options` Tk widget.
 - Added a one-second live scan clock with progress percentage, elapsed time and ETA estimation so long MkPFS operations remain visibly active.
 - The final action now reads `Apply changes` / `Apply changes (N)` and uses a distinct green enabled state while continuing to route through the existing safe rename entry point.
-- Added the discreet clickable `Created by XaRaBaS` credit to the main desktop interface.
+- Reworked the bottom project credit into a spaced, inset `PROJECT BY XaRaBaS ↗` element.
+- Replaced ambiguous Folder handling with three result-oriented library modes: **One folder per game**, **All files in library root** and **Keep current structure**, with a real Before/After example.
+- Replaced the native Windows rename prompt with a dark in-app **Review changes** dialog that explains the organization mode, READY items, path changes and folder operations before Apply.
+- Replaced the old Options tab strip with a modern vertical settings navigation.
 - Lowered MkPFS child-process priority on Windows and moved helper stdout/stderr to temporary files with bounded diagnostic-tail reads.
-- Added a bounded-memory metadata path in the bundled helper: PFSC block offsets use a small 64 KiB LRU page cache and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
-- The metadata path remains read-only, keeps timeout/cancellation behavior and never rewrites or recompresses `.ffpfsc` files.
+- Added a bounded-memory metadata path in the bundled helper: PFSC block offsets use small 64 KiB pages and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
+- Packaged metadata reads no longer fall back automatically to full recursive MkPFS unpack when a layout is unsupported; the item is reported unavailable rather than risking unbounded RAM use.
+- Packaged Game Details use a dedicated bounded `read-game-details` path for `sce_sys/param.json` and optional `sce_sys/icon0.png`.
+- Game Details are not started merely by selecting rows while the details pane is hidden; detailed extraction is explicitly on demand.
+- Bundled helper processes are monitored with a 1 GiB working-set safety threshold and stopped with a clear diagnostic if an unexpected image would otherwise exceed it.
+- Helper processes are tracked and cleaned up on cancellation, timeout and application shutdown, preventing an orphaned `mkpfs-helper.exe` from continuing after the desktop exits.
+- The metadata/details paths remain read-only, keep timeout/cancellation behavior and never rewrite or recompress `.ffpfsc` files.
 - Windows packaging keeps both the exact MkPFS 0.0.9 source distribution and the helper wrapper source under `source/third-party/`.
 - Removed the temporary one-shot v0.5.0 release-repair script/workflow from the maintained project tree.
 
@@ -33,8 +41,9 @@ The downloadable Windows package for this same v0.5.0 release is refreshed from 
 - FFPFSC payload contents are never rewritten or recompressed by rename/library-management operations.
 - `PARTIAL` metadata remains display-only and cannot be auto-renamed.
 - Destination collisions continue to block affected rename steps.
-- Selected library roots remain protected from Smart-folder rename.
+- Selected library roots remain protected from folder rename.
 - Batch rename retains fresh pre-flight validation, transactional rollback, post-rename identity verification and persistent conservative Undo.
+- **All files in library root** never deletes non-empty source folders; source directories are left untouched unless another explicit safe operation handles them.
 - `OFFLINE` rows are informational/read-only and filesystem-backed actions are blocked until the root is available and scanned successfully again.
 - Failed or cancelled scans restore the previous successful library view as stale/read-only context instead of clearing it.
 - Automatic cache pruning runs only in the background when every configured root is confirmed online and remains scoped to current configured roots.
@@ -51,8 +60,9 @@ Every report is written atomically to the local feedback queue first. Production
 - Combined verified/failure cache lookup and one reused filesystem-stat pass.
 - Iterative `os.scandir()` discovery and overlapping recursive-root collapse.
 - Aggregate scan-phase timing without per-file report I/O.
-- Bundled metadata reads avoid the generic MkPFS 0.0.9 full-tree `--deep --only` path for normal exFAT-wrapped images.
+- Bundled metadata and Game Details reads avoid the generic MkPFS 0.0.9 full-tree `--deep --only` path in packaged builds.
 - Regression coverage simulates a PFSC table with ten million blocks and verifies that initialization reads only bounded 64 KiB offset pages rather than materializing a table proportional to image size.
+- Tests verify that unsupported packaged metadata layouts do not enter the heavy fallback, Game Details stay idle until requested, and registered helper processes are terminated on cleanup.
 - Deterministic synthetic scanner regression coverage with 1,024 `.ffpfsc` files.
 - Expanded tests for offline-root preservation, stale-view guards, feedback redaction/transport, branding assets, release gates, scan snapshots and desktop MRO.
 
