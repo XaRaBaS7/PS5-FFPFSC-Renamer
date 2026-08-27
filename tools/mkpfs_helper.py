@@ -4,7 +4,6 @@ import shutil
 import struct
 import sys
 import tempfile
-import zlib
 from collections.abc import Iterator
 from multiprocessing import freeze_support
 from pathlib import Path
@@ -14,10 +13,13 @@ from mkpfs import consts
 from mkpfs import pfs as mkpfs_pfs
 from mkpfs.__main__ import main as mkpfs_main
 from mkpfs.exfat import ExfatEntry, ExfatError, ExfatReader
+from zlib_ng import zlib_ng as zlib
 
 
 _READ_PARAM_COMMAND = "read-param-json"
 _MAX_EXFAT_CLUSTER_SIZE = 32 * 1024 * 1024
+_OFFSET_PAGE_BYTES = 64 * 1024
+_OFFSET_CACHE_PAGES = 8
 _ENTRY_FILE = 0x85
 _ENTRY_STREAM_EXTENSION = 0xC0
 _ENTRY_FILE_NAME = 0xC1
@@ -34,13 +36,15 @@ class LowMemoryMetadataUnavailable(LowMemoryMetadataError):
 
 
 class _LowMemoryLogicalFileView(mkpfs_pfs._LogicalFileView):
-    """MkPFS logical view that reads PFSC offsets lazily.
+    """Seekable PFSC view with a bounded, paged block-offset cache.
 
     MkPFS 0.0.9's normal ``_LogicalFileView`` expands the complete PFSC offset
     table into a Python ``list[int]``. Large logical images can therefore spend
-    substantial memory on metadata before exFAT parsing even starts. This view
-    keeps the same seek/read behaviour while loading only the two offsets needed
-    for the block currently being decoded.
+    memory proportional to total image size before exFAT parsing even starts.
+
+    This view keeps only a few 64 KiB pages of offset entries. Page caching also
+    avoids turning the memory fix into repeated tiny seeks between the PFSC
+    offset table and compressed data on HDD/NAS-backed libraries.
     """
 
     def __init__(
@@ -65,6 +69,9 @@ class _LowMemoryLogicalFileView(mkpfs_pfs._LogicalFileView):
         self._block_count = 0
         self._block_offsets_offset = 0
         self._data_offset = 0
+        self._offset_table_bytes = 0
+        self._offset_page_cache: dict[int, bytes] = {}
+        self._offset_page_order: list[int] = []
 
         if self._compressed:
             head = self._raw(self._base, consts.PFSC_HEADER_SIZE)
@@ -77,6 +84,7 @@ class _LowMemoryLogicalFileView(mkpfs_pfs._LogicalFileView):
             ) = mkpfs_pfs._parse_pfsc_header(head)
             if self._block_count <= 0:
                 raise LowMemoryMetadataError("PFSC payload contains no logical blocks")
+            self._offset_table_bytes = (self._block_count + 1) * 8
 
             first_offset = self._read_offset(0)
             final_offset = self._read_offset(self._block_count)
@@ -85,13 +93,35 @@ class _LowMemoryLogicalFileView(mkpfs_pfs._LogicalFileView):
             if final_offset < first_offset or final_offset > self._stored_size:
                 raise LowMemoryMetadataError("PFSC offset table exceeds the stored payload")
 
+    def _read_offset_page(self, page_index: int) -> bytes:
+        cached = self._offset_page_cache.get(page_index)
+        if cached is not None:
+            return cached
+
+        page_start = page_index * _OFFSET_PAGE_BYTES
+        if page_start < 0 or page_start >= self._offset_table_bytes:
+            raise LowMemoryMetadataError(f"PFSC offset page out of range: {page_index}")
+        page_size = min(_OFFSET_PAGE_BYTES, self._offset_table_bytes - page_start)
+        raw = self._raw(self._base + self._block_offsets_offset + page_start, page_size)
+        if len(raw) != page_size:
+            raise LowMemoryMetadataError("PFSC offset table is truncated")
+
+        self._offset_page_cache[page_index] = raw
+        self._offset_page_order.append(page_index)
+        if len(self._offset_page_order) > _OFFSET_CACHE_PAGES:
+            old_page = self._offset_page_order.pop(0)
+            self._offset_page_cache.pop(old_page, None)
+        return raw
+
     def _read_offset(self, index: int) -> int:
         if not 0 <= index <= self._block_count:
             raise LowMemoryMetadataError(f"PFSC block offset index out of range: {index}")
-        raw = self._raw(self._base + self._block_offsets_offset + index * 8, 8)
-        if len(raw) != 8:
-            raise LowMemoryMetadataError("PFSC offset table is truncated")
-        return struct.unpack("<Q", raw)[0]
+        byte_offset = index * 8
+        page_index, page_offset = divmod(byte_offset, _OFFSET_PAGE_BYTES)
+        page = self._read_offset_page(page_index)
+        if page_offset + 8 > len(page):
+            raise LowMemoryMetadataError("PFSC offset entry crosses a truncated page")
+        return struct.unpack_from("<Q", page, page_offset)[0]
 
     def _decode_block(self, index: int) -> bytes:
         cached = self._cache.get(index)
@@ -122,7 +152,12 @@ class _LowMemoryLogicalFileView(mkpfs_pfs._LogicalFileView):
 
 def _open_low_memory_inner_view(image: Path) -> tuple[_LowMemoryLogicalFileView, BinaryIO, str]:
     inspection = mkpfs_pfs.inspect_pfs_image(image=image, verify_payloads=False)
-    if inspection.errors or inspection.header is None or len(inspection.file_inodes) != 1:
+    if inspection.errors:
+        detail = "; ".join(str(error) for error in inspection.errors[:3])
+        raise LowMemoryMetadataError(detail or "PFS inspection failed")
+    if inspection.header is None:
+        raise LowMemoryMetadataError("PFS image header is unavailable")
+    if len(inspection.file_inodes) != 1:
         raise LowMemoryMetadataUnavailable("image is not a supported single-file wrapped PFS")
 
     rel_name, inode_num = next(iter(inspection.file_inodes.items()))
