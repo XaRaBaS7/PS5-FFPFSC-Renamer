@@ -36,6 +36,7 @@ from .ui.rename_journal_mixin import RenameJournalMixin
 from .ui.rename_manifest_mixin import RenameManifestMixin
 from .ui.rename_safety_mixin import RenameSafetyMixin
 from .ui.result_actions_mixin import ResultActionsMixin
+from .ui.runtime_experience_mixin import RuntimeExperienceMixin
 from .ui.scan_diff_mixin import ScanDiffMixin
 from .ui.scan_view_restore_mixin import ScanViewRestoreMixin
 from .ui.self_test_mixin import SelfTestMixin
@@ -62,6 +63,7 @@ class RenamerApp(
     LiveWatchMixin,
     GameDetailsMixin,
     ScanViewRestoreMixin,
+    RuntimeExperienceMixin,
     ActivityProgressMixin,
     ScanDiffMixin,
     OfflineRootRecordsMixin,
