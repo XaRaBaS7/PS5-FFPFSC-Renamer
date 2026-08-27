@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from tkinter import messagebox
+import tkinter as tk
+from tkinter import messagebox, ttk
 
+from ..naming import (
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_ROOT_FLAT,
+    effective_folder_handling,
+)
 from ..rename_plan import PlanStatus, RenamePlanItem
 from ..rename_safety import (
     PreflightReport,
@@ -10,6 +17,7 @@ from ..rename_safety import (
     verify_completed_rename,
 )
 from ..renamer import RenameTransactionError, apply_rename_plan, build_forward_steps
+from ..theme import COLORS
 
 
 class RenameSafetyMixin:
@@ -35,6 +43,346 @@ class RenameSafetyMixin:
             lines.append("Warnings:")
             lines.extend(f"• {warning}" for warning in report.warnings[:5])
         return "\n".join(lines)
+
+    def _organization_confirmation_text(self) -> tuple[str, str, str | None]:
+        options = self._current_naming_options()
+        mode = effective_folder_handling(options)
+        roots = tuple(options.library_roots)
+        root_text = roots[0] if len(roots) == 1 else None
+
+        if mode == FOLDER_ROOT_FLAT:
+            description = (
+                "Every READY .ffpfsc will end directly in its selected library root. "
+                "No per-game folders will be created or renamed."
+            )
+            return "All files in library root", description, root_text
+        if mode == FOLDER_KEEP_STRUCTURE:
+            description = (
+                "Every READY .ffpfsc stays in its current folder. Only the filename changes; "
+                "no folder is created, moved or renamed."
+            )
+            return "Keep current structure", description, root_text
+        if mode == FOLDER_ONE_PER_GAME:
+            description = (
+                "Every READY .ffpfsc will end in one dedicated game folder directly under its library root. "
+                "Safe existing game folders may be renamed instead of recreated."
+            )
+            return "One folder per game", description, root_text
+        return "Library organization", "Apply the current library organization plan.", root_text
+
+    def _center_modal(self, window: tk.Toplevel, width: int, height: int) -> None:
+        self.update_idletasks()
+        x = self.winfo_rootx() + max(0, (self.winfo_width() - width) // 2)
+        y = self.winfo_rooty() + max(0, (self.winfo_height() - height) // 2)
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _confirm_rename_dialog(
+        self,
+        report: PreflightReport,
+        ready: list[RenamePlanItem],
+    ) -> bool:
+        result = {"confirmed": False}
+        window = tk.Toplevel(self)
+        window.title("Review changes")
+        window.configure(bg=COLORS["bg"])
+        window.transient(self)
+        window.resizable(False, False)
+        self._center_modal(window, 690, 510)
+
+        outer = tk.Frame(window, bg=COLORS["bg"])
+        outer.pack(fill="both", expand=True, padx=22, pady=20)
+
+        tk.Label(
+            outer,
+            text="Review changes",
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            font=("Segoe UI", 20, "bold"),
+            anchor="w",
+        ).pack(fill="x")
+        tk.Label(
+            outer,
+            text="Nothing is changed until you confirm this plan.",
+            bg=COLORS["bg"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 9),
+            anchor="w",
+        ).pack(fill="x", pady=(2, 14))
+
+        mode_title, mode_description, root_text = self._organization_confirmation_text()
+        mode_box = tk.Frame(
+            outer,
+            bg=COLORS["panel"],
+            highlightthickness=1,
+            highlightbackground=COLORS["accent"],
+        )
+        mode_box.pack(fill="x")
+        tk.Label(
+            mode_box,
+            text="LIBRARY ORGANIZATION",
+            bg=COLORS["panel"],
+            fg=COLORS["muted_dark"],
+            font=("Segoe UI", 8, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=12, pady=(9, 1))
+        tk.Label(
+            mode_box,
+            text=mode_title,
+            bg=COLORS["panel"],
+            fg=COLORS["accent_hover"],
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=12)
+        tk.Label(
+            mode_box,
+            text=mode_description,
+            bg=COLORS["panel"],
+            fg=COLORS["text_soft"],
+            font=("Segoe UI", 9),
+            justify="left",
+            wraplength=635,
+            anchor="w",
+        ).pack(fill="x", padx=12, pady=(3, 4))
+        if root_text:
+            tk.Label(
+                mode_box,
+                text=f"Library root:  {root_text}",
+                bg=COLORS["panel"],
+                fg=COLORS["muted"],
+                font=("Consolas", 8),
+                anchor="w",
+            ).pack(fill="x", padx=12, pady=(0, 9))
+        else:
+            tk.Label(
+                mode_box,
+                text="Each file stays associated with its own selected library root.",
+                bg=COLORS["panel"],
+                fg=COLORS["muted"],
+                font=("Segoe UI", 8),
+                anchor="w",
+            ).pack(fill="x", padx=12, pady=(0, 9))
+
+        stats = tk.Frame(outer, bg=COLORS["bg"])
+        stats.pack(fill="x", pady=(12, 0))
+        for column in range(4):
+            stats.grid_columnconfigure(column, weight=1, uniform="rename_stats")
+
+        stat_values = (
+            (report.ready_count, "FILES READY"),
+            (report.file_renames, "PATH CHANGES"),
+            (report.directories_created, "NEW FOLDERS"),
+            (report.directories_renamed, "FOLDERS RENAMED"),
+        )
+        for column, (value, label) in enumerate(stat_values):
+            box = tk.Frame(
+                stats,
+                bg=COLORS["surface"],
+                highlightthickness=1,
+                highlightbackground=COLORS["border"],
+            )
+            box.grid(
+                row=0,
+                column=column,
+                sticky="ew",
+                padx=(0 if column == 0 else 4, 0 if column == 3 else 4),
+            )
+            tk.Label(
+                box,
+                text=str(value),
+                bg=COLORS["surface"],
+                fg=COLORS["text"],
+                font=("Segoe UI", 16, "bold"),
+            ).pack(anchor="w", padx=10, pady=(7, 0))
+            tk.Label(
+                box,
+                text=label,
+                bg=COLORS["surface"],
+                fg=COLORS["muted"],
+                font=("Segoe UI", 7, "bold"),
+            ).pack(anchor="w", padx=10, pady=(0, 7))
+
+        moved_count = sum(
+            1
+            for item in ready
+            if item.source.parent.resolve() != item.destination.parent.resolve()
+        )
+        detail_parts = [f"{report.total_gib:.2f} GiB represented"]
+        if moved_count:
+            detail_parts.append(f"{moved_count} file(s) change folder location")
+        if report.blocked_count:
+            detail_parts.append(f"{report.blocked_count} blocked row(s) stay untouched")
+        tk.Label(
+            outer,
+            text="  •  ".join(detail_parts),
+            bg=COLORS["bg"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 8),
+            anchor="w",
+        ).pack(fill="x", pady=(8, 0))
+
+        safety_box = tk.Frame(
+            outer,
+            bg=COLORS["success_soft"],
+            highlightthickness=1,
+            highlightbackground=COLORS["success"],
+        )
+        safety_box.pack(fill="x", pady=(12, 0))
+        tk.Label(
+            safety_box,
+            text="✓  FFPFSC contents are never rewritten or recompressed.",
+            bg=COLORS["success_soft"],
+            fg=COLORS["success"],
+            font=("Segoe UI", 9, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=11, pady=(8, 2))
+        tk.Label(
+            safety_box,
+            text=(
+                "Destinations are checked again immediately before Apply. The batch is rollback-protected, "
+                "file identity is verified afterwards, and Ctrl+Z Undo is recorded when History is saved."
+            ),
+            bg=COLORS["success_soft"],
+            fg=COLORS["text_soft"],
+            font=("Segoe UI", 8),
+            justify="left",
+            wraplength=630,
+            anchor="w",
+        ).pack(fill="x", padx=11, pady=(0, 8))
+
+        if report.warnings:
+            warning_text = " • ".join(report.warnings[:3])
+            tk.Label(
+                outer,
+                text=f"Warning: {warning_text}",
+                bg=COLORS["bg"],
+                fg=COLORS["warning"],
+                font=("Segoe UI", 8),
+                wraplength=640,
+                justify="left",
+                anchor="w",
+            ).pack(fill="x", pady=(7, 0))
+
+        buttons = tk.Frame(outer, bg=COLORS["bg"])
+        buttons.pack(side="bottom", fill="x", pady=(15, 0))
+
+        def cancel() -> None:
+            result["confirmed"] = False
+            window.destroy()
+
+        def confirm() -> None:
+            result["confirmed"] = True
+            window.destroy()
+
+        ttk.Button(
+            buttons,
+            text="Cancel",
+            style="Secondary.TButton",
+            command=cancel,
+        ).pack(side="right")
+        ttk.Button(
+            buttons,
+            text=f"Apply {report.ready_count} changes",
+            style="RenamePrimary.TButton",
+            command=confirm,
+        ).pack(side="right", padx=(0, 8))
+
+        window.protocol("WM_DELETE_WINDOW", cancel)
+        window.bind("<Escape>", lambda _event: cancel())
+        window.bind("<Return>", lambda _event: confirm())
+        window.grab_set()
+        window.focus_force()
+        window.wait_window()
+        return bool(result["confirmed"])
+
+    def _show_rename_completed_dialog(self, completed_count: int) -> None:
+        verification = self._last_rename_verification
+        verified_text = (
+            f"Verified {verification.verified_count}/{verification.checked_count} destination file identities."
+            if verification is not None
+            else "Post-rename verification was unavailable."
+        )
+        undo_text = (
+            "Ctrl+Z can undo this transaction from Operation History."
+            if getattr(self, "_last_rename_undo_available", False)
+            else "No Undo journal is available for this transaction."
+        )
+
+        window = tk.Toplevel(self)
+        window.title("Changes applied")
+        window.configure(bg=COLORS["bg"])
+        window.transient(self)
+        window.resizable(False, False)
+        self._center_modal(window, 520, 285)
+
+        outer = tk.Frame(window, bg=COLORS["bg"])
+        outer.pack(fill="both", expand=True, padx=22, pady=20)
+        tk.Label(
+            outer,
+            text="✓",
+            bg=COLORS["bg"],
+            fg=COLORS["success"],
+            font=("Segoe UI", 26, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            outer,
+            text="Changes applied successfully",
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            font=("Segoe UI", 16, "bold"),
+            anchor="w",
+        ).pack(fill="x")
+        tk.Label(
+            outer,
+            text=f"Completed {completed_count} file operation(s).",
+            bg=COLORS["bg"],
+            fg=COLORS["text_soft"],
+            font=("Segoe UI", 10),
+            anchor="w",
+        ).pack(fill="x", pady=(3, 12))
+
+        info = tk.Frame(
+            outer,
+            bg=COLORS["panel"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
+        info.pack(fill="x")
+        tk.Label(
+            info,
+            text=verified_text,
+            bg=COLORS["panel"],
+            fg=COLORS["success"] if verification and verification.passed else COLORS["text_soft"],
+            font=("Segoe UI", 9, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=11, pady=(9, 2))
+        tk.Label(
+            info,
+            text="Paths and caches were updated in memory; no rescan is required.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 8),
+            anchor="w",
+        ).pack(fill="x", padx=11)
+        tk.Label(
+            info,
+            text=undo_text,
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 8),
+            anchor="w",
+        ).pack(fill="x", padx=11, pady=(2, 9))
+
+        ttk.Button(
+            outer,
+            text="Close",
+            style="Primary.TButton",
+            command=window.destroy,
+        ).pack(side="bottom", anchor="e", pady=(14, 0))
+        window.bind("<Escape>", lambda _event: window.destroy())
+        window.bind("<Return>", lambda _event: window.destroy())
+        window.grab_set()
+        window.focus_force()
+        window.wait_window()
 
     def _require_fresh_scan_view(self) -> None:
         if getattr(self, "_scan_view_stale", False):
@@ -125,17 +473,7 @@ class RenameSafetyMixin:
             )
             return
 
-        message = (
-            "Apply the current output plan?\n\n"
-            + self._preflight_summary(preview_preflight)
-            + "\n\nSafety checks:\n"
-            "• destinations are checked again immediately before Apply;\n"
-            "• the batch is rollback-protected if a later filesystem step fails;\n"
-            "• file size + filesystem identity are verified after the rename;\n"
-            "• FFPFSC contents are never rewritten or recompressed;\n"
-            "• Ctrl+Z Undo is available after completion when the Operation History entry is saved successfully."
-        )
-        if not messagebox.askyesno("Confirm rename transaction", message, parent=self):
+        if not self._confirm_rename_dialog(preview_preflight, ready):
             return
 
         try:
@@ -145,22 +483,4 @@ class RenameSafetyMixin:
             return
 
         if completed:
-            verification = self._last_rename_verification
-            verified_text = (
-                f"Post-rename verification: {verification.verified_count}/{verification.checked_count} passed."
-                if verification is not None
-                else "Post-rename verification unavailable."
-            )
-            undo_text = (
-                "Press Ctrl+Z if you want to undo this transaction."
-                if getattr(self, "_last_rename_undo_available", False)
-                else "Undo journal unavailable for this transaction."
-            )
-            messagebox.showinfo(
-                "PS5 FFPFSC Renamer",
-                f"Completed {len(completed)} file operation(s).\n\n"
-                + verified_text
-                + "\nNo rescan is required: paths and caches were updated in memory.\n"
-                + undo_text,
-                parent=self,
-            )
+            self._show_rename_completed_dialog(len(completed))
