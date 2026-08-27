@@ -4,7 +4,7 @@ v0.5.0 is a major desktop workflow and reliability update. It keeps the existing
 
 ## v0.5.0 hotfix refresh
 
-The downloadable Windows package for this same v0.5.0 release is refreshed from the current `main` source. The historical `v0.5.0` tag remains anchored to the original release commit; no v0.5.1 is introduced.
+The downloadable Windows package for this same v0.5.0 release is refreshed from the current `main` source after the UX and MkPFS memory-safety validation. The historical `v0.5.0` tag remains anchored to the original release commit; no v0.5.1 is introduced.
 
 - Fixed automatic startup scans so the modern shell no longer configures a stale, already-destroyed central `Options` Tk widget.
 - Added a one-second live scan clock with progress percentage, elapsed time and ETA estimation so long MkPFS operations remain visibly active.
