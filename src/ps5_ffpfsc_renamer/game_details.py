@@ -15,13 +15,24 @@ from typing import Any
 from .ffpfsc_reader import (
     MetadataReadCancelled,
     MetadataReadError,
+    _bundled_mkpfs_helper,
+    _capture_tail,
+    _memory_limit_error,
     _mkpfs_command,
     _stop_process,
+    get_mkpfs_executable,
 )
 from .metadata import GameMetadata, metadata_from_param_json
-from .process_utils import hidden_subprocess_kwargs
+from .process_utils import (
+    DEFAULT_MKPFS_MEMORY_LIMIT_BYTES,
+    hidden_subprocess_kwargs,
+    process_working_set_bytes,
+    register_child_process,
+    unregister_child_process,
+)
 
 _CACHE_SCHEMA = 1
+_MEMORY_POLL_SECONDS = 0.10
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,41 +125,108 @@ def _run_unpack(
     timeout: int,
     cancel_event: threading.Event | None,
 ) -> None:
+    """Run an explicitly configured/developer MkPFS engine without buffering logs in RAM."""
     command = [*_mkpfs_command(), "unpack", str(image), str(output_dir), "--deep"]
     for selector in selectors:
         command.extend(("--only", selector))
     command.append("--no-progress")
 
+    stdout_path = output_dir.parent / "mkpfs-details-stdout.log"
+    stderr_path = output_dir.parent / "mkpfs-details-stderr.log"
+    process: subprocess.Popen[bytes] | None = None
     try:
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            **hidden_subprocess_kwargs(),
-        )
+        with stdout_path.open("wb") as stdout_handle, stderr_path.open("wb") as stderr_handle:
+            process = subprocess.Popen(
+                command,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
+                text=False,
+                **hidden_subprocess_kwargs(low_priority=True),
+            )
+            register_child_process(process)
+            deadline = time.monotonic() + timeout
+            while True:
+                if cancel_event is not None and cancel_event.is_set():
+                    _stop_process(process)
+                    raise MetadataReadCancelled("Game details analysis cancelled")
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    _stop_process(process)
+                    raise MetadataReadError(f"MkPFS timed out after {timeout} seconds")
+                try:
+                    process.wait(timeout=min(_MEMORY_POLL_SECONDS, remaining))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
     except OSError as exc:
         raise MetadataReadError(f"Unable to run MkPFS: {exc}") from exc
-
-    deadline = time.monotonic() + timeout
-    stdout = ""
-    stderr = ""
-    while True:
-        if cancel_event is not None and cancel_event.is_set():
-            _stop_process(process)
-            raise MetadataReadCancelled("Game details analysis cancelled")
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            _stop_process(process)
-            raise MetadataReadError(f"MkPFS timed out after {timeout} seconds")
-        try:
-            stdout, stderr = process.communicate(timeout=min(0.25, remaining))
-            break
-        except subprocess.TimeoutExpired:
-            continue
+    finally:
+        if process is not None:
+            unregister_child_process(process)
 
     if process.returncode != 0:
-        detail = (stderr or stdout).strip()
+        detail = _capture_tail(stderr_path) or _capture_tail(stdout_path)
+        raise MetadataReadError(detail or f"MkPFS exited with code {process.returncode}")
+
+
+def _run_bundled_details(
+    helper: Path,
+    image: Path,
+    output_dir: Path,
+    *,
+    timeout: int,
+    cancel_event: threading.Event | None,
+) -> None:
+    """Read param/icon with the packaged bounded-memory helper only."""
+    command = [str(helper), "read-game-details", str(image), str(output_dir)]
+    stdout_path = output_dir.parent / "mkpfs-details-stdout.log"
+    stderr_path = output_dir.parent / "mkpfs-details-stderr.log"
+    process: subprocess.Popen[bytes] | None = None
+    try:
+        with stdout_path.open("wb") as stdout_handle, stderr_path.open("wb") as stderr_handle:
+            process = subprocess.Popen(
+                command,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
+                text=False,
+                **hidden_subprocess_kwargs(low_priority=True),
+            )
+            register_child_process(process)
+            deadline = time.monotonic() + timeout
+            while True:
+                if cancel_event is not None and cancel_event.is_set():
+                    _stop_process(process)
+                    raise MetadataReadCancelled("Game details analysis cancelled")
+
+                working_set = process_working_set_bytes(process)
+                if (
+                    working_set is not None
+                    and working_set > DEFAULT_MKPFS_MEMORY_LIMIT_BYTES
+                ):
+                    _stop_process(process)
+                    raise _memory_limit_error(
+                        image,
+                        working_set,
+                        DEFAULT_MKPFS_MEMORY_LIMIT_BYTES,
+                    )
+
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    _stop_process(process)
+                    raise MetadataReadError(f"MkPFS timed out after {timeout} seconds")
+                try:
+                    process.wait(timeout=min(_MEMORY_POLL_SECONDS, remaining))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+    except OSError as exc:
+        raise MetadataReadError(f"Unable to run MkPFS: {exc}") from exc
+    finally:
+        if process is not None:
+            unregister_child_process(process)
+
+    if process.returncode != 0:
+        detail = _capture_tail(stderr_path) or _capture_tail(stdout_path)
         raise MetadataReadError(detail or f"MkPFS exited with code {process.returncode}")
 
 
@@ -223,26 +301,44 @@ def load_game_details(
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-details-") as temp_name:
         output_dir = Path(temp_name) / "extract"
 
-        try:
-            _run_unpack(
+        bundled_helper = None
+        if get_mkpfs_executable() is None:
+            bundled_helper = _bundled_mkpfs_helper()
+
+        if bundled_helper is not None:
+            # Packaged builds never fall back to the normal recursive MkPFS
+            # extractor. The helper either succeeds on its bounded-memory path
+            # or reports the item as unavailable, protecting the workstation.
+            _run_bundled_details(
+                bundled_helper,
                 image,
                 output_dir,
-                ("sce_sys/param.json", "sce_sys/icon0.png"),
                 timeout=timeout,
                 cancel_event=cancel_event,
             )
-        except MetadataReadError as combined_error:
-            shutil.rmtree(output_dir, ignore_errors=True)
+        else:
+            # Developer/custom-engine compatibility path. Keep the historical
+            # selector fallback, but stream logs to disk instead of memory.
             try:
                 _run_unpack(
                     image,
                     output_dir,
-                    ("sce_sys/param.json",),
+                    ("sce_sys/param.json", "sce_sys/icon0.png"),
                     timeout=timeout,
                     cancel_event=cancel_event,
                 )
-            except MetadataReadError:
-                raise combined_error
+            except MetadataReadError as combined_error:
+                shutil.rmtree(output_dir, ignore_errors=True)
+                try:
+                    _run_unpack(
+                        image,
+                        output_dir,
+                        ("sce_sys/param.json",),
+                        timeout=timeout,
+                        cancel_event=cancel_event,
+                    )
+                except MetadataReadError:
+                    raise combined_error
 
         param_path = _find_asset(output_dir, "param.json")
         if param_path is None:
