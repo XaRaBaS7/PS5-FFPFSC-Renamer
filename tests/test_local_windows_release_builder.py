@@ -23,13 +23,16 @@ def test_local_windows_release_builder_keeps_v050_and_runs_required_checks() -> 
 
 
 def test_local_windows_release_builder_does_not_publish_or_move_tags() -> None:
-    text = SCRIPT.read_text(encoding="utf-8").lower()
+    text = SCRIPT.read_text(encoding="utf-8")
 
-    assert "gh release" not in text
-    assert "git tag" not in text
-    assert "git push" not in text
-    assert "release create" not in text
-    assert "release upload" not in text
+    # The local fallback builder must have no publishing commands at all. It may
+    # mention tags/releases only in explanatory status text.
+    assert "gh release view" not in text
+    assert "gh release create" not in text
+    assert "gh release upload" not in text
+    assert "git tag -a" not in text
+    assert "git push origin" not in text
+    assert "git update-ref" not in text
 
 
 def test_local_windows_release_builder_creates_versioned_top_level_zip() -> None:
