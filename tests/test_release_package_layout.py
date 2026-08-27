@@ -11,10 +11,12 @@ def test_windows_package_keeps_required_docs_and_mkpfs_source_without_redundant_
         text = (ROOT / ".github" / "workflows" / workflow_name).read_text(encoding="utf-8")
         assert 'Copy-Item ".\\README.md" "$app\\README.md"' in text
         assert 'Copy-Item ".\\CHANGELOG.md" "$app\\CHANGELOG.md"' in text
+        assert 'Copy-Item ".\\LICENSE" "$app\\LICENSE.md"' not in text
         assert 'Copy-Item ".\\LICENSE" "$app\\LICENSE"' in text
         assert 'Copy-Item ".\\THIRD_PARTY_NOTICES.md" "$app\\THIRD_PARTY_NOTICES.md"' in text
         assert 'source\\third-party' in text
         assert 'mkpfs==0.0.9' in text
+        assert 'Copy-Item ".\\tools\\mkpfs_helper.py" "$app\\source\\third-party\\mkpfs_helper.py"' in text
         assert 'Copy-Item ".\\assets\\app-icon.png"' not in text
         assert 'Copy-Item ".\\assets\\brand\\*"' not in text
         assert 'Unexpected redundant app-icon.png in package root' in text
