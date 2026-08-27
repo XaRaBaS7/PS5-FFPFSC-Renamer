@@ -26,6 +26,7 @@ class MetadataReadCancelled(MetadataReadError):
 _default_cache: MetadataCache | None = None
 _default_cache_lock = threading.Lock()
 _custom_mkpfs_executable: Path | None = None
+_MAX_CAPTURE_BYTES = 64 * 1024
 
 
 def _get_default_cache() -> MetadataCache:
@@ -131,15 +132,28 @@ def _mkpfs_command() -> list[str]:
     )
 
 
-def _stop_process(process: subprocess.Popen[str]) -> tuple[str, str]:
-    """Terminate a child process and return any captured output."""
+def _stop_process(process: subprocess.Popen[bytes]) -> None:
+    """Terminate a child process without requiring in-memory output pipes."""
     if process.poll() is None:
         process.terminate()
     try:
-        return process.communicate(timeout=2)
+        process.wait(timeout=2)
     except subprocess.TimeoutExpired:
         process.kill()
-        return process.communicate()
+        process.wait()
+
+
+def _capture_tail(path: Path, limit: int = _MAX_CAPTURE_BYTES) -> str:
+    """Read only a bounded tail of a helper log file for error reporting."""
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, 2)
+            size = handle.tell()
+            handle.seek(max(0, size - max(1, int(limit))))
+            raw = handle.read(max(1, int(limit)))
+    except OSError:
+        return ""
+    return raw.decode("utf-8", errors="replace").strip()
 
 
 def read_metadata(
@@ -169,7 +183,10 @@ def read_metadata(
             active_cache = None
 
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-renamer-") as temp_name:
-        output_dir = Path(temp_name) / "extract"
+        temp_root = Path(temp_name)
+        output_dir = temp_root / "extract"
+        stdout_path = temp_root / "mkpfs-stdout.log"
+        stderr_path = temp_root / "mkpfs-stderr.log"
         command = [
             *_mkpfs_command(),
             "unpack",
@@ -182,37 +199,36 @@ def read_metadata(
         ]
 
         try:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                **hidden_subprocess_kwargs(),
-            )
+            with stdout_path.open("wb") as stdout_handle, stderr_path.open("wb") as stderr_handle:
+                process = subprocess.Popen(
+                    command,
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    text=False,
+                    **hidden_subprocess_kwargs(low_priority=True),
+                )
+
+                deadline = time.monotonic() + timeout
+                while True:
+                    if cancel_event is not None and cancel_event.is_set():
+                        _stop_process(process)
+                        raise MetadataReadCancelled("Metadata analysis cancelled")
+
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        _stop_process(process)
+                        raise MetadataReadError(f"MkPFS timed out after {timeout} seconds")
+
+                    try:
+                        process.wait(timeout=min(0.25, remaining))
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
         except OSError as exc:
             raise MetadataReadError(f"Unable to run MkPFS: {exc}") from exc
 
-        deadline = time.monotonic() + timeout
-        stdout = ""
-        stderr = ""
-        while True:
-            if cancel_event is not None and cancel_event.is_set():
-                _stop_process(process)
-                raise MetadataReadCancelled("Metadata analysis cancelled")
-
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                _stop_process(process)
-                raise MetadataReadError(f"MkPFS timed out after {timeout} seconds")
-
-            try:
-                stdout, stderr = process.communicate(timeout=min(0.25, remaining))
-                break
-            except subprocess.TimeoutExpired:
-                continue
-
         if process.returncode != 0:
-            detail = (stderr or stdout).strip()
+            detail = _capture_tail(stderr_path) or _capture_tail(stdout_path)
             raise MetadataReadError(detail or f"MkPFS exited with code {process.returncode}")
 
         candidates = list(output_dir.rglob("param.json"))
