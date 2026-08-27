@@ -75,10 +75,11 @@ jobs:
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
           Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
 
-          # MkPFS is GPL-3.0. Preserve the exact source distribution used to
-          # build the separate bundled helper.
+          # MkPFS is GPL-3.0. Preserve both the exact upstream source
+          # distribution and the wrapper source used by mkpfs-helper.exe.
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
+          Copy-Item ".\tools\mkpfs_helper.py" "$app\source\third-party\mkpfs_helper.py"
 
           # Branding is already embedded by PyInstaller under _internal.
           if (Test-Path "$app\app-icon.png") { throw "Unexpected redundant app-icon.png in package root" }
