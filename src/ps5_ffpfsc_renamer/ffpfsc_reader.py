@@ -12,7 +12,13 @@ from pathlib import Path
 
 from .cache import MetadataCache
 from .metadata import GameMetadata, metadata_from_param_json
-from .process_utils import hidden_subprocess_kwargs
+from .process_utils import (
+    DEFAULT_MKPFS_MEMORY_LIMIT_BYTES,
+    hidden_subprocess_kwargs,
+    process_working_set_bytes,
+    register_child_process,
+    unregister_child_process,
+)
 
 
 class MetadataReadError(RuntimeError):
@@ -27,6 +33,7 @@ _default_cache: MetadataCache | None = None
 _default_cache_lock = threading.Lock()
 _custom_mkpfs_executable: Path | None = None
 _MAX_CAPTURE_BYTES = 64 * 1024
+_MEMORY_POLL_SECONDS = 0.10
 
 
 def _get_default_cache() -> MetadataCache:
@@ -132,15 +139,18 @@ def _mkpfs_command() -> list[str]:
     )
 
 
-def _stop_process(process: subprocess.Popen[bytes]) -> None:
+def _stop_process(process: subprocess.Popen[bytes] | subprocess.Popen[str]) -> None:
     """Terminate a child process without requiring in-memory output pipes."""
-    if process.poll() is None:
-        process.terminate()
     try:
-        process.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
+        if process.poll() is None:
+            process.terminate()
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+    finally:
+        unregister_child_process(process)
 
 
 def _capture_tail(path: Path, limit: int = _MAX_CAPTURE_BYTES) -> str:
@@ -154,6 +164,16 @@ def _capture_tail(path: Path, limit: int = _MAX_CAPTURE_BYTES) -> str:
     except OSError:
         return ""
     return raw.decode("utf-8", errors="replace").strip()
+
+
+def _memory_limit_error(image: Path, used_bytes: int, limit_bytes: int) -> MetadataReadError:
+    used_mib = used_bytes / (1024 * 1024)
+    limit_mib = limit_bytes / (1024 * 1024)
+    return MetadataReadError(
+        f"MkPFS memory safety limit exceeded while reading {image.name}: "
+        f"{used_mib:.0f} MiB used (limit {limit_mib:.0f} MiB). "
+        "The helper was stopped before it could exhaust system memory."
+    )
 
 
 def read_metadata(
@@ -214,6 +234,7 @@ def read_metadata(
                 "--no-progress",
             ]
 
+        process: subprocess.Popen[bytes] | None = None
         try:
             with stdout_path.open("wb") as stdout_handle, stderr_path.open("wb") as stderr_handle:
                 process = subprocess.Popen(
@@ -223,12 +244,20 @@ def read_metadata(
                     text=False,
                     **hidden_subprocess_kwargs(low_priority=True),
                 )
+                register_child_process(process)
 
                 deadline = time.monotonic() + timeout
+                memory_limit = DEFAULT_MKPFS_MEMORY_LIMIT_BYTES if bundled_helper is not None else None
                 while True:
                     if cancel_event is not None and cancel_event.is_set():
                         _stop_process(process)
                         raise MetadataReadCancelled("Metadata analysis cancelled")
+
+                    if memory_limit is not None:
+                        working_set = process_working_set_bytes(process)
+                        if working_set is not None and working_set > memory_limit:
+                            _stop_process(process)
+                            raise _memory_limit_error(image, working_set, memory_limit)
 
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
@@ -236,12 +265,15 @@ def read_metadata(
                         raise MetadataReadError(f"MkPFS timed out after {timeout} seconds")
 
                     try:
-                        process.wait(timeout=min(0.25, remaining))
+                        process.wait(timeout=min(_MEMORY_POLL_SECONDS, remaining))
                         break
                     except subprocess.TimeoutExpired:
                         continue
         except OSError as exc:
             raise MetadataReadError(f"Unable to run MkPFS: {exc}") from exc
+        finally:
+            if process is not None:
+                unregister_child_process(process)
 
         if process.returncode != 0:
             detail = _capture_tail(stderr_path) or _capture_tail(stdout_path)

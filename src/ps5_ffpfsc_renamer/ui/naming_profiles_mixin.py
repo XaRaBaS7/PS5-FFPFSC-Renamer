@@ -4,7 +4,12 @@ from dataclasses import replace
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
-from ..naming import FOLDER_ALWAYS_NEW, FOLDER_FILE_ONLY
+from ..naming import (
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_ROOT_FLAT,
+    normalize_folder_handling,
+)
 from ..naming_profiles import (
     BUNDLED_PROFILES,
     NamingProfile,
@@ -55,11 +60,12 @@ class NamingProfilesMixin:
             self.naming_profiles_button.pack(side="right")
 
     def _folder_label(self, mode: str) -> str:
-        if mode == FOLDER_FILE_ONLY:
-            return self.FOLDER_FILE_ONLY_LABEL
-        if mode == FOLDER_ALWAYS_NEW:
-            return self.FOLDER_ALWAYS_NEW_LABEL
-        return self.FOLDER_SMART_LABEL
+        normalized = normalize_folder_handling(mode)
+        if normalized == FOLDER_ROOT_FLAT:
+            return self.FOLDER_ROOT_FLAT_LABEL
+        if normalized == FOLDER_KEEP_STRUCTURE:
+            return self.FOLDER_KEEP_STRUCTURE_LABEL
+        return self.FOLDER_ONE_PER_GAME_LABEL
 
     def _profile_from_current(self, name: str) -> NamingProfile:
         options = self._current_naming_options()
@@ -83,12 +89,11 @@ class NamingProfilesMixin:
             self.VERSION_COMPACT if profile.compact_version else self.VERSION_ORIGINAL
         )
         self.version_prefix_var.set(profile.version_prefix)
-        self.folder_mode_var.set(self._folder_label(profile.folder_handling))
+        self._set_folder_mode(profile.folder_handling)
         self.component_order[:] = list(profile.component_order)
         self._filename_separator = profile.separator
         self.preset_var.set(self.PRESET_CUSTOM)
         self._render_order_editor()
-        self._update_folder_help()
         self._output_setting_changed()
         self._queue_save_preferences()
         self.status_var.set(f"Naming profile applied: {profile.name}")
@@ -127,7 +132,6 @@ class NamingProfilesMixin:
 
         content = ttk.Frame(outer)
         content.pack(fill="both", expand=True)
-
         left = ttk.Frame(content)
         left.pack(side="left", fill="both", expand=True)
         right = ttk.Frame(content, padding=(14, 0, 0, 0))
@@ -156,22 +160,6 @@ class NamingProfilesMixin:
         ).pack(anchor="nw", fill="x")
 
         current: list[tuple[NamingProfile, bool]] = []
-
-        def refresh(select_name: str | None = None) -> None:
-            nonlocal current
-            current = all_profiles()
-            listbox.delete(0, "end")
-            selection = 0
-            for index, (profile, built_in) in enumerate(current):
-                suffix = "  [built-in]" if built_in else ""
-                listbox.insert("end", profile.name + suffix)
-                if select_name and profile.name.casefold() == select_name.casefold():
-                    selection = index
-            if current:
-                listbox.selection_clear(0, "end")
-                listbox.selection_set(selection)
-                listbox.see(selection)
-                show_selected()
 
         def selected_pair() -> tuple[NamingProfile, bool] | None:
             selection = listbox.curselection()
@@ -211,8 +199,24 @@ class NamingProfilesMixin:
                 f"Version: {'compact' if profile.compact_version else 'original'}"
                 f"{' + prefix v' if profile.version_prefix and profile.include_version else ''}\n"
                 f"Separator: {self._separator_display(profile.separator)}\n"
-                f"Folder mode: {self._folder_label(profile.folder_handling)}"
+                f"Organization: {self._folder_label(profile.folder_handling)}"
             )
+
+        def refresh(select_name: str | None = None) -> None:
+            nonlocal current
+            current = all_profiles()
+            listbox.delete(0, "end")
+            selection = 0
+            for index, (profile, built_in) in enumerate(current):
+                suffix = "  [built-in]" if built_in else ""
+                listbox.insert("end", profile.name + suffix)
+                if select_name and profile.name.casefold() == select_name.casefold():
+                    selection = index
+            if current:
+                listbox.selection_clear(0, "end")
+                listbox.selection_set(selection)
+                listbox.see(selection)
+                show_selected()
 
         def apply_selected() -> None:
             pair = selected_pair()
@@ -222,11 +226,7 @@ class NamingProfilesMixin:
             window.destroy()
 
         def save_current() -> None:
-            name = simpledialog.askstring(
-                "Save naming profile",
-                "Profile name:",
-                parent=window,
-            )
+            name = simpledialog.askstring("Save naming profile", "Profile name:", parent=window)
             if name is None:
                 return
             name = " ".join(name.strip().split())
@@ -293,29 +293,24 @@ class NamingProfilesMixin:
         if not created:
             return
         window = created[-1]
-        notebook = self._find_notebook(window)
-        if notebook is None:
+        pages = getattr(window, "_options_pages", None)
+        if not isinstance(pages, dict):
+            return
+        naming_page = pages.get("naming")
+        if naming_page is None:
             return
 
-        naming_tab = None
-        for tab_id in notebook.tabs():
-            if str(notebook.tab(tab_id, "text")).strip().casefold() == "naming":
-                naming_tab = notebook.nametowidget(tab_id)
-                break
-        if naming_tab is None:
-            return
-
-        ttk.Separator(naming_tab).pack(fill="x", pady=14)
-        ttk.Label(naming_tab, text="Separator & profiles", style="CardTitle.TLabel").pack(anchor="w")
+        ttk.Separator(naming_page).pack(fill="x", pady=(10, 12))
+        ttk.Label(naming_page, text="Separator & profiles", style="CardTitle.TLabel").pack(anchor="w")
         ttk.Label(
-            naming_tab,
+            naming_page,
             text="Choose what is placed between active filename components. Profiles remember this setting too.",
             style="CardMuted.TLabel",
-            wraplength=690,
+            wraplength=610,
             justify="left",
         ).pack(anchor="w", pady=(2, 8))
 
-        row = ttk.Frame(naming_tab)
+        row = ttk.Frame(naming_page, style="Card.TFrame")
         row.pack(fill="x")
         ttk.Label(row, text="Separator", style="CardMuted.TLabel").pack(side="left")
         separator = tk.StringVar(value=self._filename_separator)

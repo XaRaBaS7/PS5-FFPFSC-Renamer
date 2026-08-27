@@ -29,6 +29,7 @@ class GameDetailsMixin:
         self._details_icon_label: tk.Label | None = None
         self._details_photo: tk.PhotoImage | None = None
         self._details_record: LibraryRecord | None = None
+        self._details_loaded_path: Path | None = None
         self._details_visible = False
         self._details_generation = 0
         self._details_after_id: str | None = None
@@ -149,7 +150,7 @@ class GameDetailsMixin:
         raw_toolbar.pack(fill="x", pady=(0, 5))
         ttk.Label(
             raw_toolbar,
-            text="Raw sce_sys/param.json extracted selectively from the FFPFSC image",
+            text="Raw sce_sys/param.json extracted on demand from the FFPFSC image",
             style="CardMuted.TLabel",
         ).pack(side="left")
         ttk.Button(raw_toolbar, text="Copy JSON", command=self._copy_details_json).pack(side="right")
@@ -182,7 +183,7 @@ class GameDetailsMixin:
         scroll_x = ttk.Scrollbar(raw, orient="horizontal", command=self._details_json.xview)
         scroll_x.pack(fill="x")
         self._details_json.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
-        self._set_details_json("Select a game to load sce_sys/param.json")
+        self._set_details_json("Select a game, then click Show to load sce_sys/param.json")
 
     def _toggle_details_panel(self) -> None:
         if self._details_body is None or self._details_toggle_button is None:
@@ -191,10 +192,15 @@ class GameDetailsMixin:
             self._details_body.pack_forget()
             self._details_visible = False
             self._details_toggle_button.configure(text="Show")
-        else:
-            self._details_body.pack(fill="x")
-            self._details_visible = True
-            self._details_toggle_button.configure(text="Hide")
+            return
+
+        self._details_body.pack(fill="x")
+        self._details_visible = True
+        self._details_toggle_button.configure(text="Hide")
+        if self._details_record is not None:
+            current = self._details_record.view.source.resolve(strict=False)
+            if self._details_loaded_path != current:
+                self._activate_details_record(self._details_record, load=True)
 
     def _ensure_details_visible(self) -> None:
         if self._details_body is None or self._details_visible:
@@ -249,6 +255,7 @@ class GameDetailsMixin:
         if len(rows) != 1:
             self._cancel_pending_details()
             self._details_record = None
+            self._details_loaded_path = None
             self._details_generation += 1
             if self._details_status_var is not None:
                 self._details_status_var.set(
@@ -259,22 +266,33 @@ class GameDetailsMixin:
             return
         record = self._row_records.get(rows[0])
         if record is not None:
-            self._activate_details_record(record)
+            self._activate_details_record(record, load=self._details_visible)
 
-    def _activate_details_record(self, record: LibraryRecord, *, force: bool = False) -> None:
+    def _activate_details_record(
+        self,
+        record: LibraryRecord,
+        *,
+        force: bool = False,
+        load: bool = False,
+    ) -> None:
         self._cancel_pending_details()
         self._details_record = record
         self._details_generation += 1
         generation = self._details_generation
-        self._ensure_details_visible()
+        if load:
+            self._ensure_details_visible()
         if self._details_toggle_button is not None:
             self._details_toggle_button.configure(state="normal")
 
         view = record.view
+        current_path = view.source.resolve(strict=False)
+        if self._details_loaded_path != current_path:
+            self._details_loaded_path = None
+
         self._details_vars["title"].set(view.title or "-")
         self._details_vars["title_id"].set(view.title_id or "-")
         self._details_vars["content_version"].set(view.version or "-")
-        self._details_vars["master_version"].set("Loading...")
+        self._details_vars["master_version"].set("Loading..." if load else "Not loaded")
         self._details_vars["size"].set(human_size(view.size))
         self._details_vars["status"].set(view.status)
         if view.status == "PARTIAL":
@@ -285,16 +303,27 @@ class GameDetailsMixin:
             source = "Verified scan metadata / cache"
         self._details_vars["source"].set(source)
         self._details_vars["path"].set(str(view.source))
-        self._set_details_json("Waiting to load sce_sys/param.json...")
-        self._reset_details_icon("Waiting to load\nicon0.png...")
-        if self._details_status_var is not None:
-            self._details_status_var.set(f"Selected {view.source.name} — preparing details...")
 
-        delay = 0 if force else self.DETAILS_DEBOUNCE_MS
-        self._details_after_id = self.after(
-            delay,
-            lambda: self._start_details_load(view.source, generation, force),
+        if load:
+            self._set_details_json("Waiting to load sce_sys/param.json...")
+            self._reset_details_icon("Waiting to load\nicon0.png...")
+            if self._details_status_var is not None:
+                self._details_status_var.set(f"Selected {view.source.name} — preparing details...")
+            delay = 0 if force else self.DETAILS_DEBOUNCE_MS
+            self._details_after_id = self.after(
+                delay,
+                lambda: self._start_details_load(view.source, generation, force),
+            )
+            return
+
+        self._set_details_json(
+            "Detailed param.json and icon0.png are not loaded automatically.\n\n"
+            "Click Show to inspect this game. This avoids unnecessary MkPFS disk and memory use "
+            "while you browse the library."
         )
+        self._reset_details_icon("ICON0\non demand")
+        if self._details_status_var is not None:
+            self._details_status_var.set(f"Selected {view.source.name} — click Show for details")
 
     def _start_details_load(self, path: Path, generation: int, force: bool) -> None:
         self._details_after_id = None
@@ -346,29 +375,31 @@ class GameDetailsMixin:
         if record is None or record.view.source.resolve(strict=False) != path.resolve(strict=False):
             return
 
+        self._details_loaded_path = path.resolve(strict=False)
         metadata = details.metadata
         self._details_vars["title"].set(metadata.title_name or record.view.title or "-")
         self._details_vars["title_id"].set(metadata.title_id)
         self._details_vars["content_version"].set(metadata.content_version or "-")
         self._details_vars["master_version"].set(metadata.master_version or "-")
         self._details_vars["source"].set(
-            "Details cache" if details.cache_hit else "MkPFS selective extraction"
+            "Details cache" if details.cache_hit else "MkPFS bounded selective extraction"
         )
         self._set_details_json(json.dumps(details.param_json, indent=2, ensure_ascii=False))
         self._show_icon(details.icon_path)
         if self._details_status_var is not None:
-            suffix = "cache" if details.cache_hit else "MkPFS"
+            suffix = "cache" if details.cache_hit else "MkPFS low-memory"
             icon = " • icon0.png" if details.icon_path is not None else " • no icon0.png"
             self._details_status_var.set(f"Loaded from {suffix}{icon}")
         self._log(
             "CACHE" if details.cache_hit else "MKPFS",
-            f"Game details loaded: {path.name} ({'cache' if details.cache_hit else 'selective extraction'})",
+            f"Game details loaded: {path.name} ({'cache' if details.cache_hit else 'bounded selective extraction'})",
         )
 
     def _details_failed(self, path: Path, generation: int, detail: str) -> None:
         if generation != self._details_generation:
             return
         self._details_cancel_event = None
+        self._details_loaded_path = None
         code, friendly = classify_reader_error(detail)
         self._details_vars["master_version"].set("-")
         self._details_vars["source"].set(f"Details unavailable ({code})")
@@ -381,12 +412,12 @@ class GameDetailsMixin:
         self._log("WARN", f"Game details unavailable for {path.name}: {friendly}")
 
     def _show_record_details(self, record: LibraryRecord) -> None:
-        self._activate_details_record(record)
+        self._activate_details_record(record, load=True)
 
     def _refresh_selected_details(self) -> None:
         if self._details_record is None:
             return
-        self._activate_details_record(self._details_record, force=True)
+        self._activate_details_record(self._details_record, force=True, load=True)
 
     def _current_details_path(self) -> Path | None:
         return self._details_record.view.source if self._details_record is not None else None

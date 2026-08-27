@@ -16,16 +16,6 @@ from ..settings_backup import (
 class SettingsBackupMixin:
     """Portable configuration-only settings backup and restore actions."""
 
-    @staticmethod
-    def _find_options_notebook(widget: tk.Misc) -> ttk.Notebook | None:
-        for child in widget.winfo_children():
-            if isinstance(child, ttk.Notebook):
-                return child
-            nested = SettingsBackupMixin._find_options_notebook(child)
-            if nested is not None:
-                return nested
-        return None
-
     def _show_options(self) -> None:
         before = set(self.winfo_children())
         super()._show_options()
@@ -38,19 +28,14 @@ class SettingsBackupMixin:
             return
 
         window = created[-1]
-        notebook = self._find_options_notebook(window)
-        if notebook is None:
+        pages = getattr(window, "_options_pages", None)
+        if not isinstance(pages, dict):
             return
-        tabs = notebook.tabs()
-        if not tabs:
-            return
-
-        try:
-            general = notebook.nametowidget(tabs[0])
-        except KeyError:
+        general = pages.get("general")
+        if general is None:
             return
 
-        ttk.Separator(general).pack(fill="x", pady=(16, 14))
+        ttk.Separator(general).pack(fill="x", pady=(16, 12))
         ttk.Label(
             general,
             text="Settings backup",
@@ -59,21 +44,20 @@ class SettingsBackupMixin:
         ttk.Label(
             general,
             text=(
-                "Export or restore application configuration only. "
-                "Metadata caches, Game Details cache, operation history, activity log "
-                "and FFPFSC files are not included."
+                "Export or restore application configuration only. Metadata caches, Game Details cache, "
+                "operation history, activity log and FFPFSC files are not included."
             ),
             style="CardMuted.TLabel",
-            wraplength=690,
+            wraplength=610,
             justify="left",
-        ).pack(anchor="w", pady=(2, 10))
+        ).pack(anchor="w", pady=(2, 9))
 
-        actions = ttk.Frame(general)
+        actions = ttk.Frame(general, style="Card.TFrame")
         actions.pack(fill="x")
-
         ttk.Button(
             actions,
             text="Export settings...",
+            style="Secondary.TButton",
             command=lambda: self._export_settings_backup(parent=window),
         ).pack(side="left")
 
@@ -84,6 +68,7 @@ class SettingsBackupMixin:
         ttk.Button(
             actions,
             text="Import settings...",
+            style="Secondary.TButton",
             command=import_settings,
         ).pack(side="left", padx=(8, 0))
 

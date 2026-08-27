@@ -6,7 +6,13 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .ffpfsc_reader import _mkpfs_command
+from .ffpfsc_reader import (
+    MetadataReadError,
+    _bundled_mkpfs_helper,
+    _mkpfs_command,
+    get_mkpfs_executable,
+    read_metadata,
+)
 from .metadata import GameMetadata
 from .process_utils import run_hidden
 
@@ -83,6 +89,18 @@ def classify_reader_error(detail: str) -> tuple[str, str]:
     """Return a stable code plus a short user-facing explanation."""
     lowered = detail.lower()
 
+    if "memory safety limit exceeded" in lowered:
+        return (
+            "memory-safety-limit",
+            "MkPFS was stopped because its memory use crossed the application safety limit. "
+            "The file was left unchanged and the next item can continue safely.",
+        )
+    if "heavy mkpfs fallback is disabled for safety" in lowered:
+        return (
+            "unsupported-bounded-layout",
+            "This image layout is not supported by the bounded-memory reader. "
+            "The full recursive MkPFS fallback was deliberately not started to protect system memory.",
+        )
     if "truncated read at offset 0" in lowered:
         return (
             "truncated-read",
@@ -168,13 +186,56 @@ def _inspection_summary(output: str) -> str | None:
     return ", ".join(interesting) or None
 
 
+def _packaged_safe_diagnostics(image: Path, lines: list[str], timeout: int) -> str:
+    """Diagnose a packaged image without invoking recursive MkPFS tree/inspect passes."""
+    try:
+        metadata = read_metadata(image, timeout=timeout, use_cache=False)
+    except MetadataReadError as exc:
+        detail = str(exc)
+        code, friendly = classify_reader_error(detail)
+        lines.extend(
+            (
+                "",
+                "Reader mode: BOUNDED / PACKAGED",
+                "Safe metadata probe: FAILED",
+                f"Assessment: {code}",
+                friendly,
+                "",
+                "Full recursive MkPFS diagnostics were not started. This is intentional memory-safety behavior.",
+                "",
+                "Technical details:",
+                _compact_output(detail),
+            )
+        )
+        return "\n".join(lines)
+
+    lines.extend(
+        (
+            "",
+            "Reader mode: BOUNDED / PACKAGED",
+            "Safe metadata probe: OK",
+            f"Title ID: {metadata.title_id}",
+            f"Title: {metadata.title_name or '-'}",
+            f"Content version: {metadata.content_version or '-'}",
+            "",
+            "Full recursive MkPFS diagnostics were not required or started.",
+        )
+    )
+    return "\n".join(lines)
+
+
 def diagnose_image(
     image: Path,
     *,
     library_root: Path | None = None,
     timeout: int = 30,
 ) -> str:
-    """Run small, read-only MkPFS diagnostics for one image."""
+    """Run read-only diagnostics for one image.
+
+    Packaged builds stay on the same bounded-memory helper path as normal
+    metadata reads. Custom/developer engines retain the richer upstream
+    inspect/tree probes because their behavior is explicitly user-selected.
+    """
     image = Path(image).expanduser().resolve()
     lines = ["FFPFSC DIAGNOSTICS", "", f"File: {image.name}", f"Path: {image}"]
 
@@ -207,6 +268,9 @@ def diagnose_image(
         )
     else:
         lines.append("Path fallback: no PPSA detected")
+
+    if get_mkpfs_executable() is None and _bundled_mkpfs_helper() is not None:
+        return _packaged_safe_diagnostics(image, lines, timeout)
 
     base = _mkpfs_command()
     inspect_code, inspect_output = _run(

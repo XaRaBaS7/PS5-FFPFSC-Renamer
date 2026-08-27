@@ -10,10 +10,36 @@ COMPONENT_TITLE = "title"
 COMPONENT_VERSION = "version"
 COMPONENTS = (COMPONENT_TITLE_ID, COMPONENT_TITLE, COMPONENT_VERSION)
 
+# Current library-organization modes. These describe the desired final layout,
+# not implementation details.
+FOLDER_KEEP_STRUCTURE = "keep_structure"
+FOLDER_ROOT_FLAT = "root_flat"
+FOLDER_ONE_PER_GAME = "one_per_game"
+
+# Legacy persisted values kept for compatibility with existing profiles/tests.
 FOLDER_FILE_ONLY = "file_only"
 FOLDER_SMART = "smart"
 FOLDER_ALWAYS_NEW = "always_new"
-FOLDER_HANDLING_MODES = (FOLDER_FILE_ONLY, FOLDER_SMART, FOLDER_ALWAYS_NEW)
+FOLDER_HANDLING_MODES = (
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ROOT_FLAT,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_FILE_ONLY,
+    FOLDER_SMART,
+    FOLDER_ALWAYS_NEW,
+)
+
+# Older desktop builds persisted the visible combobox label rather than the
+# internal mode. Accept both old and current labels so an existing settings
+# file upgrades without resetting the user's organization preference.
+_FOLDER_LABEL_ALIASES = {
+    "Smart (recommended)": FOLDER_ONE_PER_GAME,
+    "Always create new folder": FOLDER_ONE_PER_GAME,
+    "File only": FOLDER_KEEP_STRUCTURE,
+    "One folder per game": FOLDER_ONE_PER_GAME,
+    "All files in library root": FOLDER_ROOT_FLAT,
+    "Keep current structure": FOLDER_KEEP_STRUCTURE,
+}
 
 _WINDOWS_RESERVED = {
     "CON", "PRN", "AUX", "NUL",
@@ -32,25 +58,35 @@ class NamingOptions:
     compact_version: bool = True
     version_prefix: bool = True
     # Backward-compatible flag used by the older UI/tests. When True and
-    # folder_handling is left at file_only it maps to always_new.
+    # folder_handling is left at file_only it maps to one-folder-per-game.
     create_folder: bool = False
     folder_handling: str = FOLDER_FILE_ONLY
     # Backward-compatible single selected root.
     library_root: str | None = None
-    # Current UI can scan multiple independent roots. Smart mode resolves the
-    # correct protected root separately for every source path.
+    # Current UI can scan multiple independent roots. Organization modes
+    # resolve the correct protected root separately for every source path.
     library_roots: tuple[str, ...] = ()
     separator: str = " - "
     component_order: tuple[str, ...] = COMPONENTS
 
 
-def effective_folder_handling(options: NamingOptions) -> str:
-    mode = options.folder_handling
-    if mode not in FOLDER_HANDLING_MODES:
+def normalize_folder_handling(mode: str, *, create_folder: bool = False) -> str:
+    """Normalize current, legacy, and previously persisted UI values."""
+    normalized = _FOLDER_LABEL_ALIASES.get(mode, mode)
+    if normalized not in FOLDER_HANDLING_MODES:
         raise ValueError(f"Unknown folder handling mode: {mode}")
-    if mode == FOLDER_FILE_ONLY and options.create_folder:
-        return FOLDER_ALWAYS_NEW
-    return mode
+    if normalized == FOLDER_FILE_ONLY:
+        return FOLDER_ONE_PER_GAME if create_folder else FOLDER_KEEP_STRUCTURE
+    if normalized in {FOLDER_SMART, FOLDER_ALWAYS_NEW}:
+        return FOLDER_ONE_PER_GAME
+    return normalized
+
+
+def effective_folder_handling(options: NamingOptions) -> str:
+    return normalize_folder_handling(
+        options.folder_handling,
+        create_folder=options.create_folder,
+    )
 
 
 def sanitize_windows_component(value: str) -> str:
@@ -156,6 +192,6 @@ def example_output(options: NamingOptions) -> str:
     )
     stem = build_output_stem(metadata, options)
     filename = f"{stem}.ffpfsc"
-    if effective_folder_handling(options) != FOLDER_FILE_ONLY:
+    if effective_folder_handling(options) == FOLDER_ONE_PER_GAME:
         return f"{stem}\\{filename}"
     return filename

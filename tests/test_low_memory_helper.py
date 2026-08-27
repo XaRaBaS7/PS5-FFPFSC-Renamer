@@ -26,6 +26,7 @@ def _build_synthetic_ffpfsc(tmp_path: Path) -> tuple[Path, dict[str, object]]:
         },
     }
     (sce_sys / "param.json").write_text(json.dumps(param), encoding="utf-8")
+    (sce_sys / "icon0.png").write_bytes(b"synthetic-icon")
 
     # Unrelated content makes sure the metadata path does not rely on the game
     # containing only sce_sys/param.json.
@@ -60,6 +61,16 @@ def test_low_memory_helper_reads_only_param_json(tmp_path: Path) -> None:
     mkpfs_helper.extract_param_json_low_memory(image, output)
 
     assert json.loads(output.read_text(encoding="utf-8")) == expected
+
+
+def test_low_memory_helper_reads_game_details_without_tree_walk(tmp_path: Path) -> None:
+    image, expected = _build_synthetic_ffpfsc(tmp_path)
+    output = tmp_path / "details"
+
+    mkpfs_helper.extract_game_details_low_memory(image, output)
+
+    assert json.loads((output / "sce_sys" / "param.json").read_text(encoding="utf-8")) == expected
+    assert (output / "sce_sys" / "icon0.png").read_bytes() == b"synthetic-icon"
 
 
 def test_low_memory_view_does_not_materialize_pfsc_offset_list(tmp_path: Path) -> None:
@@ -124,6 +135,23 @@ def test_low_memory_view_pages_large_offset_table_without_materializing_it(monke
     assert max(reads[1:]) <= mkpfs_helper._OFFSET_PAGE_BYTES
     assert sum(reads[1:]) <= mkpfs_helper._OFFSET_PAGE_BYTES * 2
     assert len(view._offset_page_cache) <= mkpfs_helper._OFFSET_CACHE_PAGES
+
+
+def test_metadata_command_never_falls_back_to_heavy_unpack(tmp_path: Path, monkeypatch) -> None:
+    image = tmp_path / "unsupported.ffpfsc"
+    output = tmp_path / "param.json"
+
+    def unavailable(_image: Path, _output: Path) -> None:
+        raise mkpfs_helper.LowMemoryMetadataUnavailable("unsupported synthetic layout")
+
+    def forbidden_fallback(_args) -> int:
+        raise AssertionError("normal MkPFS fallback must never run for metadata reads")
+
+    monkeypatch.setattr(mkpfs_helper, "extract_param_json_low_memory", unavailable)
+    monkeypatch.setattr(mkpfs_helper, "mkpfs_main", forbidden_fallback)
+
+    assert mkpfs_helper._run_read_param_json([str(image), str(output)]) == 3
+    assert not output.exists()
 
 
 def test_frozen_reader_uses_bundled_param_command(tmp_path: Path, monkeypatch) -> None:
