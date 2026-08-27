@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import shutil
 import struct
 import sys
-import tempfile
 from collections.abc import Iterator
 from multiprocessing import freeze_support
 from pathlib import Path
@@ -17,6 +15,7 @@ from zlib_ng import zlib_ng as zlib
 
 
 _READ_PARAM_COMMAND = "read-param-json"
+_READ_DETAILS_COMMAND = "read-game-details"
 _MAX_EXFAT_CLUSTER_SIZE = 32 * 1024 * 1024
 _OFFSET_PAGE_BYTES = 64 * 1024
 _OFFSET_CACHE_PAGES = 8
@@ -32,7 +31,7 @@ class LowMemoryMetadataError(RuntimeError):
 
 
 class LowMemoryMetadataUnavailable(LowMemoryMetadataError):
-    """Raised for legacy layouts that require the normal MkPFS extractor."""
+    """Raised for layouts that are not supported by the bounded-memory reader."""
 
 
 class _LowMemoryLogicalFileView(mkpfs_pfs._LogicalFileView):
@@ -221,6 +220,23 @@ def _iter_directory_level(
         )
 
 
+def _matching_children(
+    reader: ExfatReader,
+    *,
+    first_cluster: int,
+    no_fat_chain: bool,
+    length: int,
+    rel_dir: str,
+    name: str,
+) -> list[ExfatEntry]:
+    target = name.casefold()
+    return [
+        entry
+        for entry in _iter_directory_level(reader, first_cluster, no_fat_chain, length, rel_dir)
+        if entry.name.casefold() == target
+    ]
+
+
 def _find_unique_child(
     reader: ExfatReader,
     *,
@@ -230,12 +246,14 @@ def _find_unique_child(
     rel_dir: str,
     name: str,
 ) -> ExfatEntry:
-    target = name.casefold()
-    matches = [
-        entry
-        for entry in _iter_directory_level(reader, first_cluster, no_fat_chain, length, rel_dir)
-        if entry.name.casefold() == target
-    ]
+    matches = _matching_children(
+        reader,
+        first_cluster=first_cluster,
+        no_fat_chain=no_fat_chain,
+        length=length,
+        rel_dir=rel_dir,
+        name=name,
+    )
     if len(matches) != 1:
         raise LowMemoryMetadataError(
             f"Expected one '{name}' entry under '{rel_dir or '/'}', found {len(matches)}"
@@ -243,30 +261,75 @@ def _find_unique_child(
     return matches[0]
 
 
-def extract_param_json_low_memory(image: Path, output: Path) -> None:
-    """Extract only ``sce_sys/param.json`` using bounded-memory random reads."""
+def _find_optional_unique_child(
+    reader: ExfatReader,
+    *,
+    first_cluster: int,
+    no_fat_chain: bool,
+    length: int,
+    rel_dir: str,
+    name: str,
+) -> ExfatEntry | None:
+    matches = _matching_children(
+        reader,
+        first_cluster=first_cluster,
+        no_fat_chain=no_fat_chain,
+        length=length,
+        rel_dir=rel_dir,
+        name=name,
+    )
+    if len(matches) > 1:
+        raise LowMemoryMetadataError(
+            f"Expected at most one '{name}' entry under '{rel_dir or '/'}', found {len(matches)}"
+        )
+    return matches[0] if matches else None
+
+
+def _open_exfat_reader(image: Path) -> tuple[ExfatReader, BinaryIO]:
     view, fh, _inner_name = _open_low_memory_inner_view(image)
     try:
-        try:
-            reader = ExfatReader(view)
-        except ExfatError as exc:
-            raise LowMemoryMetadataError(f"wrapped payload is not valid exFAT: {exc}") from exc
+        reader = ExfatReader(view)
+    except Exception:
+        fh.close()
+        raise
+    cluster_size = reader.geometry.cluster_size
+    if not 512 <= cluster_size <= _MAX_EXFAT_CLUSTER_SIZE:
+        fh.close()
+        raise LowMemoryMetadataError(f"unsupported exFAT cluster size: {cluster_size} bytes")
+    return reader, fh
 
-        cluster_size = reader.geometry.cluster_size
-        if not 512 <= cluster_size <= _MAX_EXFAT_CLUSTER_SIZE:
-            raise LowMemoryMetadataError(f"unsupported exFAT cluster size: {cluster_size} bytes")
 
-        sce_sys = _find_unique_child(
-            reader,
-            first_cluster=reader.geometry.root_dir_cluster,
-            no_fat_chain=False,
-            length=0,
-            rel_dir="",
-            name="sce_sys",
-        )
-        if not sce_sys.is_dir:
-            raise LowMemoryMetadataError("sce_sys is not a directory")
+def _find_sce_sys(reader: ExfatReader) -> ExfatEntry:
+    sce_sys = _find_unique_child(
+        reader,
+        first_cluster=reader.geometry.root_dir_cluster,
+        no_fat_chain=False,
+        length=0,
+        rel_dir="",
+        name="sce_sys",
+    )
+    if not sce_sys.is_dir:
+        raise LowMemoryMetadataError("sce_sys is not a directory")
+    return sce_sys
 
+
+def _write_entry(reader: ExfatReader, entry: ExfatEntry, output: Path) -> None:
+    if entry.is_dir:
+        raise LowMemoryMetadataError(f"{entry.rel_path} is a directory")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("wb") as destination:
+        for chunk in reader.read_file(entry, chunk_size=1024 * 1024):
+            destination.write(chunk)
+
+
+def extract_param_json_low_memory(image: Path, output: Path) -> None:
+    """Extract only ``sce_sys/param.json`` using bounded-memory random reads."""
+    try:
+        reader, fh = _open_exfat_reader(image)
+    except ExfatError as exc:
+        raise LowMemoryMetadataError(f"wrapped payload is not valid exFAT: {exc}") from exc
+    try:
+        sce_sys = _find_sce_sys(reader)
         param = _find_unique_child(
             reader,
             first_cluster=sce_sys.first_cluster,
@@ -275,49 +338,50 @@ def extract_param_json_low_memory(image: Path, output: Path) -> None:
             rel_dir=sce_sys.rel_path,
             name="param.json",
         )
-        if param.is_dir:
-            raise LowMemoryMetadataError("sce_sys/param.json is a directory")
-
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with output.open("wb") as destination:
-            for chunk in reader.read_file(param, chunk_size=1024 * 1024):
-                destination.write(chunk)
+        _write_entry(reader, param, output)
     finally:
         fh.close()
 
 
-def _fallback_extract_param_json(image: Path, output: Path) -> int:
-    """Preserve compatibility for legacy direct-PFS layouts."""
-    with tempfile.TemporaryDirectory(prefix="mkpfs-helper-param-") as temp_name:
-        extract_root = Path(temp_name) / "extract"
-        result = mkpfs_main(
-            [
-                "unpack",
-                str(image),
-                str(extract_root),
-                "--deep",
-                "--only",
-                "sce_sys/param.json",
-                "--no-progress",
-            ]
+def extract_game_details_low_memory(image: Path, output_dir: Path) -> None:
+    """Extract param.json and optional icon0.png without a recursive MkPFS tree walk."""
+    try:
+        reader, fh = _open_exfat_reader(image)
+    except ExfatError as exc:
+        raise LowMemoryMetadataError(f"wrapped payload is not valid exFAT: {exc}") from exc
+    try:
+        sce_sys = _find_sce_sys(reader)
+        param = _find_unique_child(
+            reader,
+            first_cluster=sce_sys.first_cluster,
+            no_fat_chain=sce_sys.no_fat_chain,
+            length=sce_sys.length,
+            rel_dir=sce_sys.rel_path,
+            name="param.json",
         )
-        code = int(result or 0)
-        if code != 0:
-            return code
-        candidates = [
-            path
-            for path in extract_root.rglob("param.json")
-            if path.parent.name.casefold() == "sce_sys"
-        ]
-        if len(candidates) != 1:
-            print(
-                f"Expected one extracted sce_sys/param.json, found {len(candidates)}",
-                file=sys.stderr,
-            )
-            return 2
-        output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(candidates[0], output)
-        return 0
+        icon = _find_optional_unique_child(
+            reader,
+            first_cluster=sce_sys.first_cluster,
+            no_fat_chain=sce_sys.no_fat_chain,
+            length=sce_sys.length,
+            rel_dir=sce_sys.rel_path,
+            name="icon0.png",
+        )
+        sce_sys_output = output_dir / "sce_sys"
+        _write_entry(reader, param, sce_sys_output / "param.json")
+        if icon is not None:
+            _write_entry(reader, icon, sce_sys_output / "icon0.png")
+    finally:
+        fh.close()
+
+
+def _memory_safe_failure(exc: BaseException) -> int:
+    print(
+        "Low-memory metadata path unavailable; heavy MkPFS fallback is disabled for safety. "
+        f"{exc}",
+        file=sys.stderr,
+    )
+    return 3
 
 
 def _run_read_param_json(argv: list[str]) -> int:
@@ -328,8 +392,24 @@ def _run_read_param_json(argv: list[str]) -> int:
     output = Path(argv[1]).resolve()
     try:
         extract_param_json_low_memory(image, output)
-    except LowMemoryMetadataUnavailable:
-        return _fallback_extract_param_json(image, output)
+    except LowMemoryMetadataUnavailable as exc:
+        return _memory_safe_failure(exc)
+    except (LowMemoryMetadataError, ExfatError, OSError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    return 0
+
+
+def _run_read_game_details(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print("usage: mkpfs-helper read-game-details IMAGE.ffpfsc OUTPUT_DIR", file=sys.stderr)
+        return 2
+    image = Path(argv[0]).resolve()
+    output_dir = Path(argv[1]).resolve()
+    try:
+        extract_game_details_low_memory(image, output_dir)
+    except LowMemoryMetadataUnavailable as exc:
+        return _memory_safe_failure(exc)
     except (LowMemoryMetadataError, ExfatError, OSError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -340,6 +420,8 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] == _READ_PARAM_COMMAND:
         return _run_read_param_json(args[1:])
+    if args and args[0] == _READ_DETAILS_COMMAND:
+        return _run_read_game_details(args[1:])
     return int(mkpfs_main(args) or 0)
 
 
