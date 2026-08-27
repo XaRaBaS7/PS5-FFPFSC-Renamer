@@ -10,7 +10,7 @@ from tkinter import filedialog, ttk
 from ..cache_prune_policy import can_auto_prune_cache, prune_missing_for_roots
 from ..settings import AppSettings
 from ..theme import COLORS
-from ..ui_icons import IconSet, apply_window_icon
+from ..ui_icons import IconSet
 
 
 class StartupPreferencesMixin:
@@ -30,7 +30,6 @@ class StartupPreferencesMixin:
         self._auto_prune_probe_pending = False
 
         super().__init__()
-        apply_window_icon(self)
 
         self.after(650, self._startup_autoscan)
         self.after(900, self._schedule_auto_prune_cache)
@@ -205,8 +204,20 @@ class StartupPreferencesMixin:
 
     def _set_scan_controls(self, active: bool) -> None:
         super()._set_scan_controls(active)
-        if hasattr(self, "options_button"):
-            self.options_button.configure(state="disabled" if active else "normal")
+
+        # The modern shell moves Options from the central card into the
+        # sidebar. The original ttk.Button may already have been destroyed by
+        # the time an automatic startup scan toggles the controls. Prefer the
+        # live sidebar button and treat a stale Tk widget as a cosmetic no-op.
+        button = getattr(self, "_sidebar_options_button", None)
+        if button is None:
+            button = getattr(self, "options_button", None)
+        if button is None:
+            return
+        try:
+            button.configure(state="disabled" if active else "normal")
+        except tk.TclError:
+            pass
 
     def _startup_autoscan(self) -> None:
         if self._startup_scan_pending or self._scan_active:
