@@ -42,9 +42,13 @@ class WorkspacePreferencesMixin:
         self.version_format_var.set(settings.version_format)
         self.version_prefix_var.set(settings.version_prefix)
 
-        folder_values = tuple(self.folder_mode_combo.cget("values"))
-        if settings.folder_mode in folder_values:
-            self.folder_mode_var.set(settings.folder_mode)
+        # The old UI persisted visible combobox labels (for example
+        # "Smart (recommended)"). The new outcome-based selector accepts and
+        # normalizes those values through _set_folder_mode().
+        try:
+            self._set_folder_mode(settings.folder_mode)
+        except ValueError:
+            self._set_folder_mode(self.FOLDER_ONE_PER_GAME_LABEL)
 
         self.component_order[:] = list(settings.component_order)
         self._render_order_editor()
@@ -76,7 +80,7 @@ class WorkspacePreferencesMixin:
             include_version=bool(self.include_version_var.get()),
             version_format=self.version_format_var.get(),
             version_prefix=bool(self.version_prefix_var.get()),
-            folder_mode=self.folder_mode_var.get(),
+            folder_mode=self._folder_mode(),
             component_order=tuple(self.component_order),
             result_filter=self.filter_var.get(),
             window_geometry=geometry,
