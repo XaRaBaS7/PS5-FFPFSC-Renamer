@@ -29,6 +29,18 @@ FOLDER_HANDLING_MODES = (
     FOLDER_ALWAYS_NEW,
 )
 
+# Older desktop builds persisted the visible combobox label rather than the
+# internal mode. Accept both old and current labels so an existing settings
+# file upgrades without resetting the user's organization preference.
+_FOLDER_LABEL_ALIASES = {
+    "Smart (recommended)": FOLDER_ONE_PER_GAME,
+    "Always create new folder": FOLDER_ONE_PER_GAME,
+    "File only": FOLDER_KEEP_STRUCTURE,
+    "One folder per game": FOLDER_ONE_PER_GAME,
+    "All files in library root": FOLDER_ROOT_FLAT,
+    "Keep current structure": FOLDER_KEEP_STRUCTURE,
+}
+
 _WINDOWS_RESERVED = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{i}" for i in range(1, 10)),
@@ -59,14 +71,15 @@ class NamingOptions:
 
 
 def normalize_folder_handling(mode: str, *, create_folder: bool = False) -> str:
-    """Normalize current and legacy organization values to one current mode."""
-    if mode not in FOLDER_HANDLING_MODES:
+    """Normalize current, legacy, and previously persisted UI values."""
+    normalized = _FOLDER_LABEL_ALIASES.get(mode, mode)
+    if normalized not in FOLDER_HANDLING_MODES:
         raise ValueError(f"Unknown folder handling mode: {mode}")
-    if mode == FOLDER_FILE_ONLY:
+    if normalized == FOLDER_FILE_ONLY:
         return FOLDER_ONE_PER_GAME if create_folder else FOLDER_KEEP_STRUCTURE
-    if mode in {FOLDER_SMART, FOLDER_ALWAYS_NEW}:
+    if normalized in {FOLDER_SMART, FOLDER_ALWAYS_NEW}:
         return FOLDER_ONE_PER_GAME
-    return mode
+    return normalized
 
 
 def effective_folder_handling(options: NamingOptions) -> str:
