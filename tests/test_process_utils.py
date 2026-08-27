@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
+import time
 
 from ps5_ffpfsc_renamer.process_utils import (
     active_child_process_count,
     hidden_subprocess_kwargs,
+    process_working_set_bytes,
     register_child_process,
     terminate_registered_processes,
     unregister_child_process,
@@ -65,3 +68,31 @@ def test_registered_helpers_are_terminated_and_unregistered() -> None:
         assert active_child_process_count() == 0
     finally:
         unregister_child_process(process)
+
+
+def test_windows_working_set_telemetry_reads_a_live_process() -> None:
+    if os.name != "nt":
+        return
+
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; payload=bytearray(8*1024*1024); time.sleep(3)",
+        ],
+        **hidden_subprocess_kwargs(),
+    )
+    try:
+        measured = None
+        deadline = time.monotonic() + 1.5
+        while time.monotonic() < deadline and process.poll() is None:
+            measured = process_working_set_bytes(process)
+            if measured is not None and measured > 0:
+                break
+            time.sleep(0.05)
+        assert measured is not None
+        assert measured > 0
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=3)
