@@ -10,9 +10,9 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -57,6 +57,7 @@ jobs:
       - name: Assemble release folder
         shell: pwsh
         run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
           $app = ".\dist\PS5-FFPFSC-Renamer"
           Copy-Item ".\dist\mkpfs-helper.exe" "$app\mkpfs-helper.exe"
           Copy-Item ".\README.md" "$app\README.md"
@@ -64,19 +65,25 @@ jobs:
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
           Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
 
-          # MkPFS is GPL-3.0. Keep the exact source distribution used by the
-          # bundled helper available inside the release for compliance.
+          # MkPFS is GPL-3.0. Keep both the exact upstream source distribution
+          # and the wrapper source used to build the bundled helper available.
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
+          Copy-Item ".\tools\mkpfs_helper.py" "$app\source\third-party\mkpfs_helper.py"
 
           # Branding is already bundled by PyInstaller under _internal via
           # --add-data. Do not duplicate assets or the build-time app-icon.png
           # at the package root.
           if (Test-Path "$app\app-icon.png") { throw "Unexpected redundant app-icon.png in package root" }
           if (Test-Path "$app\assets") { throw "Unexpected redundant assets directory in package root" }
+          if (-not (Test-Path "$app\_internal\assets\brand")) { throw "Bundled brand assets are missing" }
 
-          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          Compress-Archive -Path "$app\*" -DestinationPath ".\dist\PS5-FFPFSC-Renamer-v$version-Windows-x64.zip" -Force
+          $package = ".\dist\PS5-FFPFSC-Renamer-v$version-Windows-x64"
+          if (Test-Path $package) { Remove-Item $package -Recurse -Force }
+          Move-Item $app $package
+
+          $archive = "$package.zip"
+          Compress-Archive -Path $package -DestinationPath $archive -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

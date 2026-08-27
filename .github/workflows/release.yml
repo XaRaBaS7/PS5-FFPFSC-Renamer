@@ -13,11 +13,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release:')
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -75,17 +75,23 @@ jobs:
           Copy-Item ".\THIRD_PARTY_NOTICES.md" "$app\THIRD_PARTY_NOTICES.md"
           Copy-Item ".\CHANGELOG.md" "$app\CHANGELOG.md"
 
-          # MkPFS is GPL-3.0. Preserve the exact source distribution used to
-          # build the separate bundled helper.
+          # MkPFS is GPL-3.0. Preserve both the exact upstream source
+          # distribution and the wrapper source used by mkpfs-helper.exe.
           New-Item -ItemType Directory -Force "$app\source\third-party" | Out-Null
           python -m pip download --no-deps --no-binary=:all: "mkpfs==0.0.9" -d "$app\source\third-party"
+          Copy-Item ".\tools\mkpfs_helper.py" "$app\source\third-party\mkpfs_helper.py"
 
           # Branding is already embedded by PyInstaller under _internal.
           if (Test-Path "$app\app-icon.png") { throw "Unexpected redundant app-icon.png in package root" }
           if (Test-Path "$app\assets") { throw "Unexpected redundant assets directory in package root" }
+          if (-not (Test-Path "$app\_internal\assets\brand")) { throw "Bundled brand assets are missing" }
 
-          $archive = ".\dist\PS5-FFPFSC-Renamer-v$version-Windows-x64.zip"
-          Compress-Archive -Path "$app\*" -DestinationPath $archive -Force
+          $package = ".\dist\PS5-FFPFSC-Renamer-v$version-Windows-x64"
+          if (Test-Path $package) { Remove-Item $package -Recurse -Force }
+          Move-Item $app $package
+
+          $archive = "$package.zip"
+          Compress-Archive -Path $package -DestinationPath $archive -Force
           "version=$version" >> $env:GITHUB_OUTPUT
           "archive=$archive" >> $env:GITHUB_OUTPUT
 
@@ -98,14 +104,31 @@ jobs:
         run: |
           $tag = "v$env:VERSION"
           $exists = git ls-remote --tags origin "refs/tags/$tag"
-          if (-not $exists) {
+
+          # v0.5.0 is a historical immutable tag. Hotfix assets are uploaded to
+          # the existing release without moving or recreating the tag.
+          if ($tag -eq "v0.5.0") {
+            $expectedCommit = "599bf32344c039d47593c135814744d3eec654a9"
+            if (-not $exists) {
+              throw "Historical tag v0.5.0 is missing. Refusing to recreate it on current main."
+            }
+            git fetch --force origin "refs/tags/v0.5.0:refs/tags/v0.5.0"
+            $tagCommit = (git rev-list -n 1 "v0.5.0").Trim()
+            if ($tagCommit -ne $expectedCommit) {
+              throw "Historical tag v0.5.0 resolves to $tagCommit, expected $expectedCommit. Refusing release upload."
+            }
+          } elseif (-not $exists) {
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a $tag -m "PS5 FFPFSC Renamer $tag"
             git push origin $tag
           }
+
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
+            if ($tag -eq "v0.5.0") {
+              throw "Historical v0.5.0 release is missing. Refusing to create a replacement release."
+            }
             gh release create $tag $env:ARCHIVE --title "PS5 FFPFSC Renamer $tag" --notes-file RELEASE_NOTES.md
           } else {
             gh release upload $tag $env:ARCHIVE --clobber

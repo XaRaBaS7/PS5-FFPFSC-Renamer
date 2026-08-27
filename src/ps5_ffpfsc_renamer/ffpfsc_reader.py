@@ -185,18 +185,34 @@ def read_metadata(
     with tempfile.TemporaryDirectory(prefix="ps5-ffpfsc-renamer-") as temp_name:
         temp_root = Path(temp_name)
         output_dir = temp_root / "extract"
+        direct_param_path: Path | None = None
         stdout_path = temp_root / "mkpfs-stdout.log"
         stderr_path = temp_root / "mkpfs-stderr.log"
-        command = [
-            *_mkpfs_command(),
-            "unpack",
-            str(image),
-            str(output_dir),
-            "--deep",
-            "--only",
-            "sce_sys/param.json",
-            "--no-progress",
-        ]
+
+        # The release-bundled helper contains a metadata-specific path that
+        # reads PFSC offsets lazily and walks only sce_sys/param.json. Custom
+        # executables and normal developer installs keep using stock MkPFS CLI
+        # semantics for compatibility.
+        bundled_helper = None if _custom_mkpfs_executable is not None else _bundled_mkpfs_helper()
+        if bundled_helper is not None:
+            direct_param_path = temp_root / "param.json"
+            command = [
+                str(bundled_helper),
+                "read-param-json",
+                str(image),
+                str(direct_param_path),
+            ]
+        else:
+            command = [
+                *_mkpfs_command(),
+                "unpack",
+                str(image),
+                str(output_dir),
+                "--deep",
+                "--only",
+                "sce_sys/param.json",
+                "--no-progress",
+            ]
 
         try:
             with stdout_path.open("wb") as stdout_handle, stderr_path.open("wb") as stderr_handle:
@@ -231,8 +247,11 @@ def read_metadata(
             detail = _capture_tail(stderr_path) or _capture_tail(stdout_path)
             raise MetadataReadError(detail or f"MkPFS exited with code {process.returncode}")
 
-        candidates = list(output_dir.rglob("param.json"))
-        candidates = [p for p in candidates if p.parent.name.lower() == "sce_sys"]
+        if direct_param_path is not None:
+            candidates = [direct_param_path] if direct_param_path.is_file() else []
+        else:
+            candidates = list(output_dir.rglob("param.json"))
+            candidates = [p for p in candidates if p.parent.name.lower() == "sce_sys"]
         if len(candidates) != 1:
             raise MetadataReadError(
                 f"Expected one extracted sce_sys/param.json, found {len(candidates)}"
