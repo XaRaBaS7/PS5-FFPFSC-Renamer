@@ -6,9 +6,9 @@ from pathlib import Path
 
 from .metadata import GameMetadata
 from .naming import (
-    FOLDER_ALWAYS_NEW,
-    FOLDER_FILE_ONLY,
-    FOLDER_SMART,
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_ROOT_FLAT,
     NamingOptions,
     build_output_stem,
     effective_folder_handling,
@@ -84,44 +84,41 @@ def _destination_for(
     filename = f"{stem}.ffpfsc"
     mode = effective_folder_handling(options)
 
-    if mode == FOLDER_FILE_ONLY:
+    if mode == FOLDER_KEEP_STRUCTURE:
         return source.with_name(filename), None, None
-
-    if mode == FOLDER_ALWAYS_NEW:
-        target_directory = source.parent / stem
-        return target_directory / filename, target_directory, None
-
-    if mode != FOLDER_SMART:
-        raise ValueError(f"Unsupported folder handling mode: {mode}")
 
     parent = source.parent.resolve()
     root = (library_root or parent).resolve()
-
-    # A selected root is never renamed. A loose file directly in that root
-    # receives a generated per-game folder instead.
-    if _path_key(parent) == _path_key(root):
-        target_directory = root / stem
-        return target_directory / filename, target_directory, None
-
     try:
-        parent.relative_to(root)
+        source.resolve().relative_to(root)
     except ValueError as exc:
         raise ValueError("source folder is outside the selected library root") from exc
 
-    ffpfsc_files = _ffpfsc_children(parent)
-    if len(ffpfsc_files) != 1:
-        raise ValueError(
-            f"Smart folder handling requires exactly one .ffpfsc in '{parent.name}' "
-            f"(found {len(ffpfsc_files)})"
-        )
+    if mode == FOLDER_ROOT_FLAT:
+        return root / filename, None, None
 
-    target_directory = parent.with_name(stem)
+    if mode != FOLDER_ONE_PER_GAME:
+        raise ValueError(f"Unsupported folder handling mode: {mode}")
 
-    # Folder is already correctly named: only rename the file if necessary.
-    if _path_key(target_directory) == _path_key(parent):
-        return parent / filename, None, None
+    target_directory = root / stem
 
-    return target_directory / filename, target_directory, parent
+    # Already in the correct game folder: only the file itself may need a new name.
+    if _path_key(parent) == _path_key(target_directory):
+        return target_directory / filename, None, None
+
+    # A direct child containing exactly one FFPFSC is already a dedicated game
+    # folder. Rename the folder instead of creating another one so companion
+    # files stay with the game.
+    if _path_key(parent) != _path_key(root) and _path_key(parent.parent) == _path_key(root):
+        ffpfsc_files = _ffpfsc_children(parent)
+        if len(ffpfsc_files) == 1:
+            return target_directory / filename, target_directory, parent
+
+    # Loose files, files inside shared folders, or files nested deeper in the
+    # library are moved into a fresh top-level per-game folder. Existing source
+    # folders are deliberately left in place; only empty-directory cleanup may
+    # be considered separately and never happens implicitly here.
+    return target_directory / filename, target_directory, None
 
 
 def build_rename_plan(
