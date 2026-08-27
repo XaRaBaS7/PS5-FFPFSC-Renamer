@@ -2,24 +2,28 @@ from pathlib import Path
 
 from ps5_ffpfsc_renamer.metadata import GameMetadata
 from ps5_ffpfsc_renamer.naming import (
-    FOLDER_ALWAYS_NEW,
-    FOLDER_FILE_ONLY,
-    FOLDER_SMART,
+    FOLDER_KEEP_STRUCTURE,
+    FOLDER_ONE_PER_GAME,
+    FOLDER_ROOT_FLAT,
     NamingOptions,
 )
 from ps5_ffpfsc_renamer.rename_plan import PlanStatus, build_rename_plan
 from ps5_ffpfsc_renamer.renamer import apply_rename_plan
 
 
-def _metadata() -> GameMetadata:
+def _metadata(
+    title_id: str = "PPSA01285",
+    title: str = "Returnal",
+    version: str = "01.000.000",
+) -> GameMetadata:
     return GameMetadata(
-        "PPSA01285",
-        title_name="Returnal",
-        content_version="01.000.000",
+        title_id,
+        title_name=title,
+        content_version=version,
     )
 
 
-def _full_options(folder_handling: str = FOLDER_FILE_ONLY) -> NamingOptions:
+def _full_options(folder_handling: str = FOLDER_KEEP_STRUCTURE) -> NamingOptions:
     return NamingOptions(
         include_title_id=True,
         include_title=True,
@@ -55,14 +59,79 @@ def test_duplicate_target_blocks_both(tmp_path: Path) -> None:
     assert all(item.status is PlanStatus.COLLISION for item in plan)
 
 
-def test_always_new_folder_destination(tmp_path: Path) -> None:
+def test_keep_structure_renames_file_without_moving_it(tmp_path: Path) -> None:
+    folder = tmp_path / "Existing folder"
+    folder.mkdir()
+    source = folder / "wrong.ffpfsc"
+    source.write_bytes(b"data")
+
+    plan = build_rename_plan(
+        [(source, _metadata())],
+        _full_options(FOLDER_KEEP_STRUCTURE),
+        library_root=tmp_path,
+    )
+    item = plan[0]
+
+    assert item.status is PlanStatus.READY
+    assert item.target_directory is None
+    assert item.source_directory is None
+    assert item.destination.parent == folder.resolve()
+    assert item.destination.name == "PPSA01285 - Returnal - v1.0.ffpfsc"
+
+    apply_rename_plan(plan)
+    assert item.destination.read_bytes() == b"data"
+    assert folder.exists()
+
+
+def test_flat_root_moves_nested_file_directly_to_library_root(tmp_path: Path) -> None:
+    nested = tmp_path / "Old folder" / "Nested"
+    nested.mkdir(parents=True)
+    source = nested / "wrong.ffpfsc"
+    source.write_bytes(b"game")
+
+    plan = build_rename_plan(
+        [(source, _metadata())],
+        _full_options(FOLDER_ROOT_FLAT),
+        library_root=tmp_path,
+    )
+    item = plan[0]
+
+    assert item.status is PlanStatus.READY
+    assert item.target_directory is None
+    assert item.source_directory is None
+    assert item.destination == tmp_path.resolve() / "PPSA01285 - Returnal - v1.0.ffpfsc"
+
+    completed = apply_rename_plan(plan)
+    assert completed == [(source.resolve(), item.destination)]
+    assert item.destination.read_bytes() == b"game"
+    assert nested.exists(), "source folders are intentionally retained for safety"
+
+
+def test_flat_root_existing_destination_is_collision(tmp_path: Path) -> None:
+    folder = tmp_path / "Old"
+    folder.mkdir()
+    source = folder / "wrong.ffpfsc"
+    source.write_bytes(b"source")
+    target = tmp_path / "PPSA01285 - Returnal - v1.0.ffpfsc"
+    target.write_bytes(b"existing")
+
+    plan = build_rename_plan(
+        [(source, _metadata())],
+        _full_options(FOLDER_ROOT_FLAT),
+        library_root=tmp_path,
+    )
+    assert plan[0].status is PlanStatus.COLLISION
+    assert plan[0].reason == "target file already exists"
+
+
+def test_one_folder_per_game_loose_file_creates_top_level_folder(tmp_path: Path) -> None:
     source = tmp_path / "Returnal.ffpfsc"
     source.write_bytes(b"data")
-    options = _full_options(FOLDER_ALWAYS_NEW)
+    options = _full_options(FOLDER_ONE_PER_GAME)
 
     plan = build_rename_plan([(source, _metadata())], options, library_root=tmp_path)
     item = plan[0]
-    expected_folder = tmp_path / "PPSA01285 - Returnal - v1.0"
+    expected_folder = tmp_path.resolve() / "PPSA01285 - Returnal - v1.0"
 
     assert item.status is PlanStatus.READY
     assert item.source_directory is None
@@ -75,47 +144,17 @@ def test_always_new_folder_destination(tmp_path: Path) -> None:
     assert not source.exists()
 
 
-def test_existing_output_folder_is_collision(tmp_path: Path) -> None:
-    source = tmp_path / "game.ffpfsc"
-    source.write_bytes(b"data")
-    (tmp_path / "PPSA01285").mkdir()
-
-    plan = build_rename_plan(
-        [(source, GameMetadata("PPSA01285"))],
-        NamingOptions(folder_handling=FOLDER_ALWAYS_NEW),
-        library_root=tmp_path,
-    )
-    assert plan[0].status is PlanStatus.COLLISION
-
-
-def test_smart_loose_file_creates_folder_without_renaming_root(tmp_path: Path) -> None:
-    source = tmp_path / "Returnal.ffpfsc"
-    source.write_bytes(b"data")
-
-    plan = build_rename_plan(
-        [(source, _metadata())],
-        _full_options(FOLDER_SMART),
-        library_root=tmp_path,
-    )
-    item = plan[0]
-
-    assert item.status is PlanStatus.READY
-    assert item.source_directory is None
-    assert item.target_directory == tmp_path / "PPSA01285 - Returnal - v1.0"
-    assert item.target_directory != tmp_path
-
-
-def test_smart_existing_dedicated_folder_renames_folder_and_file(tmp_path: Path) -> None:
+def test_one_folder_per_game_renames_existing_dedicated_folder_and_file(tmp_path: Path) -> None:
     old_folder = tmp_path / "Returnal old"
     old_folder.mkdir()
     source = old_folder / "anything.ffpfsc"
     source.write_bytes(b"game")
     (old_folder / "notes.txt").write_text("keep me", encoding="utf-8")
 
-    options = _full_options(FOLDER_SMART)
+    options = _full_options(FOLDER_ONE_PER_GAME)
     plan = build_rename_plan([(source, _metadata())], options, library_root=tmp_path)
     item = plan[0]
-    new_folder = tmp_path / "PPSA01285 - Returnal - v1.0"
+    new_folder = tmp_path.resolve() / "PPSA01285 - Returnal - v1.0"
 
     assert item.status is PlanStatus.READY
     assert item.source_directory == old_folder.resolve()
@@ -129,23 +168,56 @@ def test_smart_existing_dedicated_folder_renames_folder_and_file(tmp_path: Path)
     assert (new_folder / "notes.txt").read_text(encoding="utf-8") == "keep me"
 
 
-def test_smart_folder_with_multiple_ffpfsc_is_blocked(tmp_path: Path) -> None:
-    folder = tmp_path / "mixed"
-    folder.mkdir()
-    source = folder / "a.ffpfsc"
-    source.write_bytes(b"a")
-    (folder / "b.ffpfsc").write_bytes(b"b")
+def test_one_folder_per_game_shared_folder_splits_games_into_root_folders(tmp_path: Path) -> None:
+    shared = tmp_path / "Mixed"
+    shared.mkdir()
+    first = shared / "a.ffpfsc"
+    second = shared / "b.ffpfsc"
+    first.write_bytes(b"a")
+    second.write_bytes(b"b")
+
+    items = [
+        (first, _metadata("PPSA01285", "Returnal")),
+        (second, _metadata("PPSA05366", "A Plague Tale Requiem", "01.005.000")),
+    ]
+    plan = build_rename_plan(
+        items,
+        _full_options(FOLDER_ONE_PER_GAME),
+        library_root=tmp_path,
+    )
+
+    assert all(item.status is PlanStatus.READY for item in plan)
+    assert all(item.source_directory is None for item in plan)
+    assert plan[0].target_directory == tmp_path.resolve() / "PPSA01285 - Returnal - v1.0"
+    assert plan[1].target_directory == (
+        tmp_path.resolve() / "PPSA05366 - A Plague Tale Requiem - v1.005"
+    )
+
+    apply_rename_plan(plan)
+    assert plan[0].destination.read_bytes() == b"a"
+    assert plan[1].destination.read_bytes() == b"b"
+    assert shared.exists()
+
+
+def test_one_folder_per_game_nested_source_moves_to_top_level_game_folder(tmp_path: Path) -> None:
+    nested = tmp_path / "Archive" / "Old" / "Returnal"
+    nested.mkdir(parents=True)
+    source = nested / "game.ffpfsc"
+    source.write_bytes(b"data")
 
     plan = build_rename_plan(
         [(source, _metadata())],
-        _full_options(FOLDER_SMART),
+        _full_options(FOLDER_ONE_PER_GAME),
         library_root=tmp_path,
     )
-    assert plan[0].status is PlanStatus.INVALID
-    assert "exactly one .ffpfsc" in plan[0].reason
+    item = plan[0]
+
+    assert item.status is PlanStatus.READY
+    assert item.source_directory is None
+    assert item.target_directory == tmp_path.resolve() / "PPSA01285 - Returnal - v1.0"
 
 
-def test_smart_already_named_folder_only_renames_file(tmp_path: Path) -> None:
+def test_one_folder_per_game_already_named_folder_only_renames_file(tmp_path: Path) -> None:
     folder = tmp_path / "PPSA01285 - Returnal - v1.0"
     folder.mkdir()
     source = folder / "old.ffpfsc"
@@ -153,7 +225,7 @@ def test_smart_already_named_folder_only_renames_file(tmp_path: Path) -> None:
 
     plan = build_rename_plan(
         [(source, _metadata())],
-        _full_options(FOLDER_SMART),
+        _full_options(FOLDER_ONE_PER_GAME),
         library_root=tmp_path,
     )
     item = plan[0]
@@ -161,10 +233,10 @@ def test_smart_already_named_folder_only_renames_file(tmp_path: Path) -> None:
     assert item.status is PlanStatus.READY
     assert item.source_directory is None
     assert item.target_directory is None
-    assert item.destination == folder / "PPSA01285 - Returnal - v1.0.ffpfsc"
+    assert item.destination == folder.resolve() / "PPSA01285 - Returnal - v1.0.ffpfsc"
 
 
-def test_smart_target_folder_collision_blocks(tmp_path: Path) -> None:
+def test_one_folder_per_game_target_folder_collision_blocks(tmp_path: Path) -> None:
     old_folder = tmp_path / "Old"
     old_folder.mkdir()
     source = old_folder / "game.ffpfsc"
@@ -173,7 +245,7 @@ def test_smart_target_folder_collision_blocks(tmp_path: Path) -> None:
 
     plan = build_rename_plan(
         [(source, _metadata())],
-        _full_options(FOLDER_SMART),
+        _full_options(FOLDER_ONE_PER_GAME),
         library_root=tmp_path,
     )
     assert plan[0].status is PlanStatus.COLLISION
