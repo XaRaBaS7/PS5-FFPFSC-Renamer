@@ -46,6 +46,7 @@ from ps5_ffpfsc_renamer.ui.rename_journal_mixin import RenameJournalMixin
 from ps5_ffpfsc_renamer.ui.rename_manifest_mixin import RenameManifestMixin
 from ps5_ffpfsc_renamer.ui.rename_safety_mixin import RenameSafetyMixin
 from ps5_ffpfsc_renamer.ui.result_actions_mixin import ResultActionsMixin
+from ps5_ffpfsc_renamer.ui.runtime_experience_mixin import RuntimeExperienceMixin
 from ps5_ffpfsc_renamer.ui.scan_diff_mixin import ScanDiffMixin
 from ps5_ffpfsc_renamer.ui.scan_view_restore_mixin import ScanViewRestoreMixin
 from ps5_ffpfsc_renamer.ui.self_test_mixin import SelfTestMixin
@@ -74,6 +75,7 @@ def test_desktop_is_fully_non_versioned_at_runtime() -> None:
         LiveWatchMixin,
         GameDetailsMixin,
         ScanViewRestoreMixin,
+        RuntimeExperienceMixin,
         ActivityProgressMixin,
         ScanDiffMixin,
         OfflineRootRecordsMixin,
@@ -129,7 +131,8 @@ def test_desktop_preserves_critical_hook_order() -> None:
     assert mro.index(PreservedViewGuardMixin) < mro.index(GameDetailsMixin)
     assert mro.index(PreservedViewGuardMixin) < mro.index(ReanalysisMixin)
     assert mro.index(PreservedViewGuardMixin) < mro.index(LibraryContextMenuMixin)
-    assert mro.index(ScanViewRestoreMixin) < mro.index(ActivityProgressMixin) < mro.index(ScanDiffMixin)
+    assert mro.index(ScanViewRestoreMixin) < mro.index(RuntimeExperienceMixin) < mro.index(ActivityProgressMixin)
+    assert mro.index(ActivityProgressMixin) < mro.index(ScanDiffMixin)
     assert mro.index(ScanDiffMixin) < mro.index(OfflineRootRecordsMixin) < mro.index(RenameManifestMixin)
     assert mro.index(ActivityProgressMixin) < mro.index(ScanDiffMixin) < mro.index(OptimizedScanMixin)
     assert mro.index(ScanDiffMixin) < mro.index(RenameManifestMixin) < mro.index(ProductMenuMixin)
