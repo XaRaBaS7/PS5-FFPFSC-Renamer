@@ -48,6 +48,15 @@ jobs:
             tools/mkpfs_helper.py
           .\dist\mkpfs-helper.exe --help
 
+      - name: Smoke-test bounded MkPFS helper
+        shell: pwsh
+        run: |
+          python -c "from pathlib import Path; import json; p=Path('smoke-game/sce_sys'); p.mkdir(parents=True, exist_ok=True); (p/'param.json').write_text(json.dumps({'titleId':'PPSA01285','localizedParameters':{'defaultLanguage':'en-US','en-US':{'titleName':'CI Smoke'}}}), encoding='utf-8'); (p/'icon0.png').write_bytes(b'synthetic-icon')"
+          mkpfs pack folder .\smoke-game .\smoke.ffpfsc --no-adjust-output-file-extension --skip-verification
+          .\dist\mkpfs-helper.exe read-param-json .\smoke.ffpfsc .\smoke-param.json
+          .\dist\mkpfs-helper.exe read-game-details .\smoke.ffpfsc .\smoke-details
+          python -c "from pathlib import Path; import json; assert json.loads(Path('smoke-param.json').read_text(encoding='utf-8'))['titleId']=='PPSA01285'; assert json.loads(Path('smoke-details/sce_sys/param.json').read_text(encoding='utf-8'))['titleId']=='PPSA01285'; assert Path('smoke-details/sce_sys/icon0.png').read_bytes()==b'synthetic-icon'"
+
       - name: Build application
         shell: pwsh
         run: |
