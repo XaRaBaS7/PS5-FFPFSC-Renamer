@@ -18,24 +18,25 @@ Windows desktop utility for scanning PS5 `.ffpfsc` libraries, reading internal m
   <img src="docs/screenshots/app-preview.svg" alt="PS5 FFPFSC Renamer desktop preview" width="100%">
 </p>
 
-The preview is versioned with the source tree. Visible desktop changes require an updated `docs/screenshots/app-preview.svg` before merge. See [`docs/SCREENSHOT_POLICY.md`](docs/SCREENSHOT_POLICY.md).
+The preview is versioned with the source tree and is a required part of visible desktop changes. Any material UI/layout/branding change must update `docs/screenshots/app-preview.svg` in the same PR/commit; CI blocks stale previews. See [`docs/SCREENSHOT_POLICY.md`](docs/SCREENSHOT_POLICY.md).
 
 ## Core capabilities
 
 - Multi-root `.ffpfsc` library scanning with optional recursive traversal.
 - Automatic scan of saved library roots at startup.
 - Persistent SQLite metadata and failure caches.
-- Selective MkPFS access to internal `sce_sys/param.json` metadata.
+- Selective low-memory MkPFS access to internal `sce_sys/param.json` metadata.
 - On-demand `icon0.png` and formatted `param.json` display.
 - Configurable PPSA / title / version filename builder.
 - Reusable naming profiles and custom separators.
-- Smart, file-only and always-new-folder organization modes.
+- User-facing library organization modes: **One folder per game**, **All files in library root**, and **Keep current structure**.
+- Safe empty-source-folder cleanup for flat-root organization, only after successful file moves.
 - Search, status filters, duplicate detection, sorting and multi-selection.
 - Transactional batch rename with rollback and persistent Undo history.
 - Fresh pre-flight validation immediately before filesystem changes.
 - Post-rename filesystem identity verification.
 - Recycle Bin integration for delete operations.
-- Integrated progress display, Activity Log and silent MkPFS helper execution.
+- Integrated progress display, Activity Log and bounded-memory silent MkPFS helper execution.
 
 ## v0.5.0 highlights
 
@@ -43,6 +44,11 @@ The v0.5.0 release adds a non-versioned desktop architecture and extends library
 
 - canonical `desktop.py` / `desktop_core.py` runtime path;
 - legacy `gui_vXX` modules retained only for compatibility;
+- compact tabbed **Library setup / Rename builder** configuration so the results table remains the dominant workspace;
+- native **File / Edit / Tools / Help** menu kept attached and functional on Windows;
+- separated status/footer area with the project credit kept away from the file list;
+- user-facing library organization cards with real Before/After guidance;
+- modern dark **Review changes** confirmation before filesystem mutation;
 - combined metadata/failure cache lookup with one filesystem-stat pass;
 - recursive root de-duplication for overlapping library roots;
 - scan snapshot comparison with `ADDED`, `REMOVED` and `CHANGED` tracking;
@@ -86,15 +92,15 @@ The standalone Windows package does not require Python, a virtual environment or
 
 1. Select a library directory with **Browse**.
 2. Add additional roots with **+ Add folder** when required.
-3. Start or refresh the scan with **Scan now / F5**.
+3. Start or refresh the scan with **Scan library / F5**.
 4. Review Title ID, title, version, size, proposed output and status.
-5. Select a naming profile or configure the Filename Builder.
+5. Open **Rename builder** and choose a naming profile plus the desired final library organization.
 6. Review `READY`, blocked, unchanged and preserved `OFFLINE` rows.
 7. Optionally export a rename manifest before applying changes.
-8. Apply the rename plan.
+8. Apply the rename plan and review the final dark confirmation dialog.
 9. Use **Ctrl+Z** when the latest completed rename transaction must be restored.
 
-Selected library roots are protected from Smart-folder renaming. `OFFLINE` rows are informational/read-only and never enter the generated rename plan until their root is available and scanned successfully again.
+Selected library roots are protected from folder rename/removal. `OFFLINE` rows are informational/read-only and never enter the generated rename plan until their root is available and scanned successfully again.
 
 ## Metadata handling
 
@@ -183,21 +189,51 @@ Version compaction examples:
 
 Changing naming settings rebuilds the plan from metadata already in memory and does not rescan FFPFSC payloads.
 
-## Folder handling
+## Library organization
 
-### Smart
+The organization selector describes the desired **final layout**, not an internal implementation mode.
 
-A loose FFPFSC in a selected root is placed in a generated per-game directory. An FFPFSC already stored in a dedicated directory can rename the containing directory while preserving unrelated files.
+### One folder per game
 
-A directory containing multiple `.ffpfsc` files is blocked from Smart-folder rename.
+Every READY `.ffpfsc` ends in one dedicated game folder directly under its selected library root. Folder and file use the generated naming stem. A safe existing dedicated game folder may be renamed instead of recreated so unrelated companion files remain with that game.
 
-### File only
+Example:
 
-Only the `.ffpfsc` filename changes.
+```text
+G:\PS5\FFPFSC\
+└── PPSA01285 - Returnal - v1.0\
+    └── PPSA01285 - Returnal - v1.0.ffpfsc
+```
 
-### Always create new folder
+### All files in library root
 
-A generated per-game directory is created and the renamed FFPFSC is placed inside it.
+Every READY `.ffpfsc` is renamed and moved directly into its selected library root.
+
+The safety order is fixed:
+
+1. validate all source/destination paths;
+2. rename/move the `.ffpfsc` into the library root;
+3. only after that move succeeds, check the old source directory;
+4. remove the old directory with a non-recursive empty-directory operation;
+5. continue upward through now-empty source ancestors, stopping before the selected library root.
+
+A folder containing **any** other file, hidden file or subfolder is left untouched. The program never recursively deletes a source folder to flatten the library, and it never deletes the selected library root.
+
+Example:
+
+```text
+Before
+G:\PS5\FFPFSC\Returnal\game.ffpfsc
+
+After
+G:\PS5\FFPFSC\PPSA01285 - Returnal - v1.0.ffpfsc
+```
+
+If `G:\PS5\FFPFSC\Returnal\` becomes empty after the successful move, it is removed. If it still contains `notes.txt` or any other content, it remains.
+
+### Keep current structure
+
+Only the `.ffpfsc` filename changes. The file stays in its current directory and no folder is created, moved, renamed or removed.
 
 ## Rename safety
 
@@ -207,9 +243,13 @@ Rename operations use multiple independent safeguards.
 
 Immediately before applying a generated rename plan, source and destination paths are validated again. Destinations created after the original preview are detected before filesystem mutation.
 
+For **All files in library root**, the confirmation also reports how many source directories are candidates for the post-move empty-folder check.
+
 ### Transaction rollback
 
-Batch operations track completed steps. If a later step fails, completed steps are rolled back when safe. Incomplete rollback is reported explicitly.
+Batch operations track completed steps. If a later step fails, completed steps are rolled back when safe. Flat-root cleanup directories are recreated before affected files are restored to their original paths.
+
+Incomplete rollback is reported explicitly.
 
 ### Post-rename verification
 
@@ -219,11 +259,11 @@ Complete multi-gigabyte images are not hashed for routine rename verification.
 
 ### Operation History / Undo
 
-Successful rename transactions are persisted in SQLite. Undo refuses to overwrite newly occupied original paths and removes application-created directories only when empty. The UI advertises `Ctrl+Z` only when the completed transaction was actually recorded successfully.
+Successful rename transactions are persisted in SQLite. Undo refuses to overwrite newly occupied original paths, removes application-created directories only when empty, and recreates source folders removed by safe flat-root cleanup before restoring their files. The UI advertises `Ctrl+Z` only when the completed transaction was actually recorded successfully.
 
 ### Rename Safety Self-Test
 
-`Tools → Rename safety self-test...` executes real rename operations only against disposable temporary `.ffpfsc` files. Coverage includes file-only rename, Smart-folder operations, collisions, rollback and Undo. Temporary payloads are compared before and after the test sequence.
+`Tools → Rename safety self-test...` executes real rename operations only against disposable temporary `.ffpfsc` files. Coverage includes file-only/keep-structure rename, per-game-folder operations, flat-root cleanup, collisions, rollback and Undo. Temporary payloads are compared before and after the test sequence.
 
 ## Library change tracking
 
@@ -270,6 +310,7 @@ Repeat-scan performance relies on:
 - no directory symlink/reparse traversal;
 - negative caching of unchanged MkPFS failures;
 - configurable metadata workers;
+- bounded-memory MkPFS helper paths for release metadata/details;
 - on-demand artwork/JSON extraction;
 - details-cache migration after Rename and Undo;
 - aggregate scan-performance report export without rescanning or file-level report I/O.
@@ -376,7 +417,7 @@ pytest -q
 ps5-ffpfsc-renamer-gui
 ```
 
-GitHub Actions compiles the source tree, checks preview freshness, runs automated tests and builds the standalone Windows package. The official project symbol is the source for generated Windows `.png`/`.ico` artwork so CI cannot silently fall back to legacy placeholder artwork.
+GitHub Actions compiles the source tree, enforces README preview freshness for all visible desktop paths, runs automated tests and builds the standalone Windows package. The official project symbol is the source for generated Windows `.png`/`.ico` artwork so CI cannot silently fall back to legacy placeholder artwork.
 
 ## License
 

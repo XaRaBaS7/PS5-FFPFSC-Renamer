@@ -24,6 +24,7 @@ class PreflightReport:
     directories_created: int
     directories_renamed: int
     identities: tuple[tuple[Path, FileIdentity], ...]
+    directories_cleanup_candidates: int = 0
     errors: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 
@@ -107,6 +108,7 @@ def preflight_rename(plan: list[RenamePlanItem]) -> PreflightReport:
     file_renames = 0
     directories_created = 0
     directories_renamed = 0
+    cleanup_directory_keys: set[str] = set()
 
     seen_sources: set[str] = set()
     seen_destinations: set[str] = set()
@@ -148,6 +150,9 @@ def preflight_rename(plan: list[RenamePlanItem]) -> PreflightReport:
         elif item.target_directory is not None:
             directories_created += 1
 
+        for directory in item.cleanup_directories:
+            cleanup_directory_keys.add(str(directory.resolve()).casefold())
+
         try:
             if source.drive and destination.drive and source.drive.casefold() != destination.drive.casefold():
                 warnings.append(f"cross-volume move planned: {source} -> {destination}")
@@ -162,6 +167,7 @@ def preflight_rename(plan: list[RenamePlanItem]) -> PreflightReport:
         directories_created=directories_created,
         directories_renamed=directories_renamed,
         identities=tuple(identities),
+        directories_cleanup_candidates=len(cleanup_directory_keys),
         errors=tuple(errors),
         warnings=tuple(warnings),
     )

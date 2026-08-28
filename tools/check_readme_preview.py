@@ -2,15 +2,25 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 PREVIEW = "docs/screenshots/app-preview.svg"
-GUI_PREFIXES = (
+
+# Any path that can materially change the visible desktop must force a preview
+# refresh in the same PR/commit. Keep this deliberately broad: missing a real UI
+# change is worse than asking for one extra preview update.
+VISIBLE_UI_PREFIXES = (
     "src/ps5_ffpfsc_renamer/gui",
+    "src/ps5_ffpfsc_renamer/ui/",
+    "assets/brand/",
+)
+VISIBLE_UI_FILES = {
+    "src/ps5_ffpfsc_renamer/desktop.py",
+    "src/ps5_ffpfsc_renamer/desktop_core.py",
+    "src/ps5_ffpfsc_renamer/branding.py",
     "src/ps5_ffpfsc_renamer/theme.py",
     "src/ps5_ffpfsc_renamer/ui_icons.py",
-)
+}
 
 
 def _run(*args: str) -> str:
@@ -29,6 +39,13 @@ def _base_ref() -> str:
     return "origin/main"
 
 
+def is_visible_ui_path(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized in VISIBLE_UI_FILES or any(
+        normalized.startswith(prefix) for prefix in VISIBLE_UI_PREFIXES
+    )
+
+
 def main() -> int:
     if not Path(PREVIEW).is_file():
         print(f"ERROR: canonical README preview is missing: {PREVIEW}")
@@ -45,24 +62,19 @@ def main() -> int:
             print(f"WARNING: unable to determine changed files: {exc}")
             return 0
 
-    visible_change = any(
-        path.startswith(GUI_PREFIXES[0])
-        or path == GUI_PREFIXES[1]
-        or path == GUI_PREFIXES[2]
-        for path in changed
-    )
+    visible_change = any(is_visible_ui_path(path) for path in changed)
     preview_changed = PREVIEW in changed
 
     if visible_change and not preview_changed:
-        print("ERROR: visible GUI files changed but the README preview was not refreshed.")
+        print("ERROR: visible desktop files changed but the README preview was not refreshed.")
         print(f"Update {PREVIEW} in the same PR/commit.")
         print("See docs/SCREENSHOT_POLICY.md.")
         return 1
 
     if visible_change:
-        print("README preview check: GUI changed and preview was refreshed.")
+        print("README preview check: desktop UI changed and preview was refreshed.")
     else:
-        print("README preview check: no visible GUI change detected.")
+        print("README preview check: no visible desktop change detected.")
     return 0
 
 

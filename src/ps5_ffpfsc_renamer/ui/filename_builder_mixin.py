@@ -121,7 +121,9 @@ class FilenameBuilderMixin:
             column=1,
             mode=FOLDER_ROOT_FLAT,
             title=self.FOLDER_ROOT_FLAT_LABEL,
-            description="Move every .ffpfsc into the selected root. No per-game folders are created.",
+            description=(
+                "Move every .ffpfsc into the selected root. Empty source folders are cleaned only after successful moves."
+            ),
         )
         self._create_organization_card(
             organization_row,
@@ -517,7 +519,8 @@ class FilenameBuilderMixin:
         elif mode == FOLDER_ROOT_FLAT:
             text = (
                 "Result: every .ffpfsc is renamed and moved directly into its selected library root. "
-                "No game folders are created or renamed; existing folders are left in place for safety."
+                "Only after the move succeeds, source folders are removed with an empty-folder check. "
+                "Any folder containing another file, hidden file or subfolder is left untouched."
             )
         else:
             text = (
@@ -540,6 +543,8 @@ class FilenameBuilderMixin:
         if not hasattr(self, "organization_example_var"):
             return
         options = self._current_naming_options()
+        mode = effective_folder_handling(options)
+        cleanup_note = ""
         try:
             if self.parsed_items:
                 source, metadata = self.parsed_items[0]
@@ -551,6 +556,8 @@ class FilenameBuilderMixin:
                     root = matching_root(Path(source))
                 before = self._relative_preview(Path(source), root)
                 after = self._relative_preview(destination, root)
+                if mode == FOLDER_ROOT_FLAT and plan[0].cleanup_directories:
+                    cleanup_note = "\nCleanup empty source folders only, after move"
             else:
                 stem = build_output_stem(
                     type("PreviewMetadata", (), {
@@ -562,15 +569,15 @@ class FilenameBuilderMixin:
                     options,
                 )
                 filename = f"{stem}.ffpfsc"
-                mode = effective_folder_handling(options)
                 before = "Old folder\\Returnal.ffpfsc"
                 if mode == FOLDER_ONE_PER_GAME:
                     after = f"{stem}\\{filename}"
                 elif mode == FOLDER_ROOT_FLAT:
                     after = filename
+                    cleanup_note = "\nCleanup empty source folders only, after move"
                 else:
                     after = f"Old folder\\{filename}"
-            self.organization_example_var.set(f"Before  {before}\nAfter   {after}")
+            self.organization_example_var.set(f"Before  {before}\nAfter   {after}{cleanup_note}")
         except (OSError, ValueError) as exc:
             self.organization_example_var.set(f"Preview unavailable: {exc}")
 

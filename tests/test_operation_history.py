@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from ps5_ffpfsc_renamer.metadata import GameMetadata
+from ps5_ffpfsc_renamer.naming import FOLDER_ROOT_FLAT, NamingOptions
 from ps5_ffpfsc_renamer.operation_history import HistoryError, OperationHistory
-from ps5_ffpfsc_renamer.rename_plan import PlanStatus, RenamePlanItem
+from ps5_ffpfsc_renamer.rename_plan import PlanStatus, RenamePlanItem, build_rename_plan
 from ps5_ffpfsc_renamer.renamer import apply_rename_plan, build_forward_steps
 
 
@@ -44,6 +45,44 @@ def test_history_undo_restores_smart_folder_and_other_files(tmp_path: Path) -> N
     assert source.read_bytes() == b"image"
     assert note.read_text(encoding="utf-8") == "keep me"
     assert not new_folder.exists()
+
+
+def test_history_undo_recreates_flat_root_source_folders_before_restoring_file(tmp_path: Path) -> None:
+    nested = tmp_path / "Archive" / "Old Game"
+    nested.mkdir(parents=True)
+    source = nested / "old-name.ffpfsc"
+    source.write_bytes(b"image")
+
+    options = NamingOptions(
+        include_title_id=True,
+        include_title=True,
+        folder_handling=FOLDER_ROOT_FLAT,
+        library_roots=(str(tmp_path),),
+    )
+    plan = build_rename_plan(
+        [(source, GameMetadata(title_id="PPSA12345", title_name="Example"))],
+        options,
+    )
+    assert plan[0].status is PlanStatus.READY
+    steps = build_forward_steps(plan)
+    assert [step.kind for step in steps] == ["rename_file", "cleanup_dir", "cleanup_dir"]
+
+    completed = apply_rename_plan(plan)
+    destination = plan[0].destination
+    assert destination.exists()
+    assert not nested.exists()
+    assert not (tmp_path / "Archive").exists()
+
+    history = OperationHistory(tmp_path / "history.sqlite3")
+    transaction_id = history.record(label="Flatten library", pairs=completed, steps=steps)
+    assert transaction_id is not None
+
+    result = history.undo_last()
+    assert result.transaction.is_undone
+    assert source.exists()
+    assert source.read_bytes() == b"image"
+    assert not destination.exists()
+    assert nested.exists()
 
 
 def test_history_only_allows_latest_non_undone_transaction(tmp_path: Path) -> None:

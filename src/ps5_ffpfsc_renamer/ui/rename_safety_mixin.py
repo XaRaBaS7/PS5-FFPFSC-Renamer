@@ -36,6 +36,10 @@ class RenameSafetyMixin:
             f"Folders to create: {report.directories_created}",
             f"Folders to rename: {report.directories_renamed}",
         ]
+        if report.directories_cleanup_candidates:
+            lines.append(
+                f"Source folders checked for empty cleanup: {report.directories_cleanup_candidates}"
+            )
         if report.blocked_count:
             lines.append(f"Blocked rows left untouched: {report.blocked_count}")
         if report.warnings:
@@ -52,8 +56,9 @@ class RenameSafetyMixin:
 
         if mode == FOLDER_ROOT_FLAT:
             description = (
-                "Every READY .ffpfsc will end directly in its selected library root. "
-                "No per-game folders will be created or renamed."
+                "Every READY .ffpfsc will be renamed and moved directly into its selected library root. "
+                "Only after each move succeeds, old source folders are removed if they are empty. "
+                "Folders containing any other file or subfolder stay untouched."
             )
             return "All files in library root", description, root_text
         if mode == FOLDER_KEEP_STRUCTURE:
@@ -87,7 +92,7 @@ class RenameSafetyMixin:
         window.configure(bg=COLORS["bg"])
         window.transient(self)
         window.resizable(False, False)
-        self._center_modal(window, 690, 510)
+        self._center_modal(window, 690, 520)
 
         outer = tk.Frame(window, bg=COLORS["bg"])
         outer.pack(fill="both", expand=True, padx=22, pady=20)
@@ -109,6 +114,7 @@ class RenameSafetyMixin:
             anchor="w",
         ).pack(fill="x", pady=(2, 14))
 
+        mode = effective_folder_handling(self._current_naming_options())
         mode_title, mode_description, root_text = self._organization_confirmation_text()
         mode_box = tk.Frame(
             outer,
@@ -167,12 +173,20 @@ class RenameSafetyMixin:
         for column in range(4):
             stats.grid_columnconfigure(column, weight=1, uniform="rename_stats")
 
-        stat_values = (
-            (report.ready_count, "FILES READY"),
-            (report.file_renames, "PATH CHANGES"),
-            (report.directories_created, "NEW FOLDERS"),
-            (report.directories_renamed, "FOLDERS RENAMED"),
-        )
+        if mode == FOLDER_ROOT_FLAT:
+            stat_values = (
+                (report.ready_count, "FILES READY"),
+                (report.file_renames, "PATH CHANGES"),
+                (report.directories_cleanup_candidates, "EMPTY FOLDER CHECKS"),
+                (report.blocked_count, "BLOCKED"),
+            )
+        else:
+            stat_values = (
+                (report.ready_count, "FILES READY"),
+                (report.file_renames, "PATH CHANGES"),
+                (report.directories_created, "NEW FOLDERS"),
+                (report.directories_renamed, "FOLDERS RENAMED"),
+            )
         for column, (value, label) in enumerate(stat_values):
             box = tk.Frame(
                 stats,
@@ -209,6 +223,10 @@ class RenameSafetyMixin:
         detail_parts = [f"{report.total_gib:.2f} GiB represented"]
         if moved_count:
             detail_parts.append(f"{moved_count} file(s) change folder location")
+        if mode == FOLDER_ROOT_FLAT and report.directories_cleanup_candidates:
+            detail_parts.append(
+                f"up to {report.directories_cleanup_candidates} empty source folder(s) cleaned after moves"
+            )
         if report.blocked_count:
             detail_parts.append(f"{report.blocked_count} blocked row(s) stay untouched")
         tk.Label(
@@ -235,12 +253,18 @@ class RenameSafetyMixin:
             font=("Segoe UI", 9, "bold"),
             anchor="w",
         ).pack(fill="x", padx=11, pady=(8, 2))
+        safety_text = (
+            "Destinations are checked again immediately before Apply. The batch is rollback-protected, "
+            "file identity is verified afterwards, and Ctrl+Z Undo is recorded when History is saved."
+        )
+        if mode == FOLDER_ROOT_FLAT:
+            safety_text += (
+                " Source folders are checked only after their files have reached the root, and only empty "
+                "folders can be removed."
+            )
         tk.Label(
             safety_box,
-            text=(
-                "Destinations are checked again immediately before Apply. The batch is rollback-protected, "
-                "file identity is verified afterwards, and Ctrl+Z Undo is recorded when History is saved."
-            ),
+            text=safety_text,
             bg=COLORS["success_soft"],
             fg=COLORS["text_soft"],
             font=("Segoe UI", 8),
@@ -414,7 +438,8 @@ class RenameSafetyMixin:
         self._log(
             "INFO",
             f"Rename pre-flight OK • {preflight.ready_count} file(s) • {preflight.total_gib:.2f} GiB • "
-            f"create folders {preflight.directories_created} • rename folders {preflight.directories_renamed}",
+            f"create folders {preflight.directories_created} • rename folders {preflight.directories_renamed} • "
+            f"empty-folder checks {preflight.directories_cleanup_candidates}",
         )
 
         steps = build_forward_steps(ready)
