@@ -13,6 +13,10 @@ The downloadable Windows package for this same v0.5.0 release is refreshed from 
 - Replaced ambiguous Folder handling with three result-oriented library modes: **One folder per game**, **All files in library root** and **Keep current structure**, with a real Before/After example.
 - Replaced the native Windows rename prompt with a dark in-app **Review changes** dialog that explains the organization mode, READY items, path changes and folder operations before Apply.
 - Replaced the old Options tab strip with a modern vertical settings navigation.
+- Reworked the main workspace into compact **Library setup** / **Rename builder** tabs so only one configuration panel occupies vertical space at a time and the results list remains the dominant area.
+- The main workspace opens on **Library setup** by default and requests a taller results Treeview for normal library browsing.
+- Restored a real attached Tk/Windows **File / Edit / Tools / Help** menubar instead of detaching it behind an in-app Menubutton row, keeping the existing menu callbacks and shortcuts live.
+- Moved the creator credit into a separated footer/status area with its own spacing and divider; the old results-area overlay is suppressed.
 - Lowered MkPFS child-process priority on Windows and moved helper stdout/stderr to temporary files with bounded diagnostic-tail reads.
 - Added a bounded-memory metadata path in the bundled helper: PFSC block offsets use small 64 KiB pages and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
 - Packaged metadata reads no longer fall back automatically to full recursive MkPFS unpack when a layout is unsupported; the item is reported unavailable rather than risking unbounded RAM use.
