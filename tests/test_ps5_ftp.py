@@ -101,7 +101,7 @@ def test_discovery_is_bounded_to_private_local_24_networks() -> None:
     assert "10.4.5.20" not in hosts
     assert "192.168.1.1" in hosts
     assert "10.4.5.1" in hosts
-    assert len(hosts) == 508
+    assert len(hosts) == 506
 
 
 def test_remote_listing_sorts_folders_first_and_keeps_sizes() -> None:

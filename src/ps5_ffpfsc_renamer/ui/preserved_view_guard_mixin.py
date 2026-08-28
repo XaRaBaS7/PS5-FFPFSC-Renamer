@@ -51,6 +51,15 @@ class PreservedViewGuardMixin:
         force: bool = False,
         load: bool = False,
     ) -> None:
+        # WorkspaceLayoutMixin intentionally keeps the results table dominant and
+        # currently does not mount the legacy Game Details footer. Tree selection
+        # must therefore remain harmless when that optional panel is absent.
+        details_vars = getattr(self, "_details_vars", None)
+        if not details_vars:
+            self._details_record = record
+            self._details_generation = int(getattr(self, "_details_generation", 0)) + 1
+            return
+
         # Cooperative override: keep the same keyword surface as GameDetailsMixin.
         # Selecting normal rows uses load=False; Show/Refresh may use load=True.
         # Preserved/offline rows stay read-only regardless of the requested mode.
