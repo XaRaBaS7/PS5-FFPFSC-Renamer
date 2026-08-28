@@ -27,11 +27,29 @@ def test_results_table_is_requested_taller_without_replacing_table_logic() -> No
     assert desktop.RenamerApp._build_table.__qualname__.startswith("SortableResultsMixin.")
 
 
-def test_effective_desktop_keeps_native_product_menu_attached() -> None:
+def test_effective_desktop_restores_styled_product_command_bar() -> None:
     source = inspect.getsource(WorkspaceLayoutMixin._install_modern_command_bar)
-    assert "self.configure(menu=menubar)" in source
-    assert 'self.configure(menu="")' not in source
+    assert "tk.Menubutton(" in source
+    assert "popup = self._clone_command_menu(submenu, button)" in source
+    assert "button.configure(menu=popup)" in source
+    assert 'self.configure(menu="")' in source
     assert desktop.RenamerApp._install_modern_command_bar is WorkspaceLayoutMixin._install_modern_command_bar
+
+
+def test_styled_command_bar_uses_button_owned_menu_clones() -> None:
+    source = inspect.getsource(WorkspaceLayoutMixin._clone_command_menu)
+    assert "clone = tk.Menu(parent, tearoff=False)" in source
+    assert "menu.invoke(item)" in source
+    assert "child_clone = self._clone_command_menu(child, clone)" in source
+    assert "clone.add_cascade" in source
+    assert "clone.add_command" in source
+
+
+def test_native_menu_remains_fallback_until_styled_buttons_exist() -> None:
+    source = inspect.getsource(WorkspaceLayoutMixin._install_modern_command_bar)
+    assert "if not bar.winfo_children()" in source
+    assert 'self.configure(menu="")' in source
+    assert "self.configure(menu=menubar)" in source
 
 
 def test_creator_credit_is_footer_only_and_not_overlayed_on_results() -> None:
