@@ -41,8 +41,22 @@ def test_manifest_rows_capture_plan_without_touching_files(tmp_path: Path) -> No
     assert row.title == "Returnal"
     assert row.version == "01.000.000"
     assert row.status == "READY"
+    assert row.cleanup_directories == ""
     assert not item.source.exists()
     assert not item.destination.exists()
+
+
+def test_manifest_records_flat_root_cleanup_directories(tmp_path: Path) -> None:
+    source_folder = tmp_path / "Old"
+    item = RenamePlanItem(
+        source=source_folder / "old.ffpfsc",
+        destination=tmp_path / "PPSA01285.ffpfsc",
+        metadata=GameMetadata(title_id="PPSA01285"),
+        status=PlanStatus.READY,
+        cleanup_directories=(source_folder,),
+    )
+    row = build_manifest_rows([item])[0]
+    assert row.cleanup_directories == str(source_folder)
 
 
 def test_manifest_keeps_block_reason(tmp_path: Path) -> None:
@@ -66,4 +80,6 @@ def test_manifest_csv_and_json_exports(tmp_path: Path) -> None:
 
     assert csv_rows[0]["title_id"] == "PPSA01285"
     assert csv_rows[0]["status"] == "READY"
+    assert "cleanup_directories" in csv_rows[0]
     assert payload[0]["destination"].endswith("PPSA01285 - Returnal.ffpfsc")
+    assert "cleanup_directories" in payload[0]

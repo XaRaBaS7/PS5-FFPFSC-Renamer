@@ -40,6 +40,38 @@ def test_batch_failure_rolls_back_earlier_completed_rename(tmp_path: Path) -> No
     assert not (tmp_path / "renamed-first.ffpfsc").exists()
 
 
+def test_batch_failure_recreates_flat_cleanup_folder_before_rollback(tmp_path: Path) -> None:
+    old_folder = tmp_path / "Old"
+    old_folder.mkdir()
+    first = old_folder / "first.ffpfsc"
+    second = tmp_path / "second.ffpfsc"
+    occupied = tmp_path / "occupied.ffpfsc"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    occupied.write_bytes(b"do-not-overwrite")
+
+    first_destination = tmp_path / "renamed-first.ffpfsc"
+    plan = [
+        RenamePlanItem(
+            source=first,
+            destination=first_destination,
+            metadata=GameMetadata(title_id="PPSA00001"),
+            status=PlanStatus.READY,
+            cleanup_directories=(old_folder,),
+        ),
+        _item(second, occupied, "PPSA00002"),
+    ]
+
+    with pytest.raises(FileExistsError):
+        apply_rename_plan(plan)
+
+    assert old_folder.exists()
+    assert first.read_bytes() == b"first"
+    assert not first_destination.exists()
+    assert second.read_bytes() == b"second"
+    assert occupied.read_bytes() == b"do-not-overwrite"
+
+
 def test_forward_steps_capture_smart_folder_rename(tmp_path: Path) -> None:
     old_folder = tmp_path / "Old"
     old_folder.mkdir()
@@ -64,3 +96,22 @@ def test_forward_steps_capture_smart_folder_rename(tmp_path: Path) -> None:
     assert steps[0].destination == target_folder
     assert steps[1].source == target_folder / "game.ffpfsc"
     assert steps[1].destination == destination
+
+
+def test_forward_steps_capture_flat_root_cleanup_after_file_move(tmp_path: Path) -> None:
+    old_folder = tmp_path / "Old"
+    source = old_folder / "game.ffpfsc"
+    destination = tmp_path / "PPSA00004.ffpfsc"
+    item = RenamePlanItem(
+        source=source,
+        destination=destination,
+        metadata=GameMetadata(title_id="PPSA00004"),
+        status=PlanStatus.READY,
+        cleanup_directories=(old_folder,),
+    )
+
+    steps = build_forward_steps([item])
+    assert [step.kind for step in steps] == ["rename_file", "cleanup_dir"]
+    assert steps[0].source == source
+    assert steps[0].destination == destination
+    assert steps[1].destination == old_folder

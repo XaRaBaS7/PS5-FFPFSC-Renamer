@@ -52,8 +52,9 @@ class OperationHistory:
     """Persistent operation journal for rename transactions.
 
     The database stores both final old/new file pairs and the lower-level
-    filesystem steps required to restore Smart-folder and newly-created-folder
-    layouts safely. No file contents are copied into the journal.
+    filesystem steps required to restore folder renames, newly-created folders
+    and safe flat-root empty-directory cleanup. No file contents are copied into
+    the journal.
 
     Every database connection is explicitly closed after each operation. This
     matters on Windows because an open SQLite/WAL handle can keep a history
@@ -234,7 +235,7 @@ class OperationHistory:
                     raise HistoryError(
                         f"Undo cannot overwrite an existing original path:\n{step.source}"
                     )
-            elif step.kind == "mkdir":
+            elif step.kind in {"mkdir", "cleanup_dir"}:
                 if step.destination.exists() and not step.destination.is_dir():
                     raise HistoryError(
                         f"Undo expected a directory but found another object:\n{step.destination}"
@@ -271,6 +272,11 @@ class OperationHistory:
                     assert step.source is not None
                     step.destination.rename(step.source)
                     reversed_steps.append(step)
+                elif step.kind == "cleanup_dir":
+                    directory = step.destination
+                    if not directory.exists():
+                        directory.mkdir(parents=False, exist_ok=False)
+                        reversed_steps.append(step)
                 elif step.kind == "mkdir":
                     directory = step.destination
                     if directory.exists():

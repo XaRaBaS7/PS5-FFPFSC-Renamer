@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from .metadata import GameMetadata
-from .naming import FOLDER_FILE_ONLY, FOLDER_SMART, NamingOptions
+from .naming import FOLDER_FILE_ONLY, FOLDER_ROOT_FLAT, FOLDER_SMART, NamingOptions
 from .operation_history import OperationHistory
 from .rename_plan import PlanStatus, build_rename_plan
 from .renamer import apply_rename_plan, build_forward_steps
@@ -194,6 +194,55 @@ def _smart_existing_folder_case(root: Path) -> str:
     return "folder rename + file rename + SHA-256 content check + Undo passed"
 
 
+def _flat_root_cleanup_case(root: Path) -> str:
+    case = root / "flat-root"
+    case.mkdir()
+    nested = case / "Old Folder" / "Nested"
+    nested.mkdir(parents=True)
+    source = nested / "old-name.ffpfsc"
+    source.write_bytes(_payload("flat-root"))
+    original_hash = _digest(source)
+
+    metadata = GameMetadata(title_id="PPSA44444", title_name="Flat Test")
+    options = NamingOptions(
+        include_title_id=True,
+        include_title=True,
+        folder_handling=FOLDER_ROOT_FLAT,
+        library_roots=(str(case),),
+    )
+    plan = build_rename_plan([(source, metadata)], options)
+    _assert_ready(plan)
+    item = plan[0]
+    expected = case.resolve() / "PPSA44444 - Flat Test.ffpfsc"
+    if item.destination != expected:
+        raise AssertionError(f"unexpected flat-root destination: {item.destination}")
+    if item.cleanup_directories != (nested.resolve(), nested.parent.resolve()):
+        raise AssertionError("flat-root cleanup candidates were not deepest-first")
+
+    steps = build_forward_steps(plan)
+    completed = apply_rename_plan(plan)
+    if source.exists() or not expected.exists():
+        raise AssertionError("flat-root move did not place the file in the selected library root")
+    if nested.exists() or (case / "Old Folder").exists():
+        raise AssertionError("empty source folders were not cleaned after the flat-root move")
+    if not case.exists():
+        raise AssertionError("selected library root was removed")
+    if _digest(expected) != original_hash:
+        raise AssertionError("file content changed during flat-root move")
+
+    history = OperationHistory(case / "history.sqlite3")
+    transaction_id = history.record(label="Self-test flat root", pairs=completed, steps=steps)
+    if not transaction_id:
+        raise AssertionError("operation history did not record flat-root cleanup")
+    history.undo(transaction_id)
+
+    if not source.exists() or expected.exists():
+        raise AssertionError("flat-root Undo did not restore the original path")
+    if _digest(source) != original_hash:
+        raise AssertionError("file content changed after flat-root Undo")
+    return "move-first + empty-folder cleanup + SHA-256 content check + Undo passed"
+
+
 def _collision_case(root: Path) -> str:
     case = root / "collision"
     case.mkdir()
@@ -272,6 +321,7 @@ def run_rename_safety_self_test() -> SelfTestReport:
         ("File-only rename and Undo", _file_only_case),
         ("Smart loose-file folder creation and Undo", _smart_loose_case),
         ("Smart existing-folder rename and Undo", _smart_existing_folder_case),
+        ("Flat-root move, empty-folder cleanup and Undo", _flat_root_cleanup_case),
         ("Collision protection", _collision_case),
         ("Batch rollback after late collision", _runtime_rollback_case),
     )

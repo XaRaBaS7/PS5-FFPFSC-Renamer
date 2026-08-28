@@ -75,6 +75,7 @@ def test_keep_structure_renames_file_without_moving_it(tmp_path: Path) -> None:
     assert item.status is PlanStatus.READY
     assert item.target_directory is None
     assert item.source_directory is None
+    assert item.cleanup_directories == ()
     assert item.destination.parent == folder.resolve()
     assert item.destination.name == "PPSA01285 - Returnal - v1.0.ffpfsc"
 
@@ -83,7 +84,7 @@ def test_keep_structure_renames_file_without_moving_it(tmp_path: Path) -> None:
     assert folder.exists()
 
 
-def test_flat_root_moves_nested_file_directly_to_library_root(tmp_path: Path) -> None:
+def test_flat_root_moves_nested_file_then_removes_empty_source_folders(tmp_path: Path) -> None:
     nested = tmp_path / "Old folder" / "Nested"
     nested.mkdir(parents=True)
     source = nested / "wrong.ffpfsc"
@@ -100,11 +101,59 @@ def test_flat_root_moves_nested_file_directly_to_library_root(tmp_path: Path) ->
     assert item.target_directory is None
     assert item.source_directory is None
     assert item.destination == tmp_path.resolve() / "PPSA01285 - Returnal - v1.0.ffpfsc"
+    assert item.cleanup_directories == (nested.resolve(), nested.parent.resolve())
 
     completed = apply_rename_plan(plan)
     assert completed == [(source.resolve(), item.destination)]
     assert item.destination.read_bytes() == b"game"
-    assert nested.exists(), "source folders are intentionally retained for safety"
+    assert not nested.exists()
+    assert not (tmp_path / "Old folder").exists()
+    assert tmp_path.exists(), "selected library root must never be removed"
+
+
+def test_flat_root_retains_source_folder_when_other_content_exists(tmp_path: Path) -> None:
+    folder = tmp_path / "Old folder"
+    folder.mkdir()
+    source = folder / "wrong.ffpfsc"
+    source.write_bytes(b"game")
+    note = folder / "notes.txt"
+    note.write_text("keep me", encoding="utf-8")
+
+    plan = build_rename_plan(
+        [(source, _metadata())],
+        _full_options(FOLDER_ROOT_FLAT),
+        library_root=tmp_path,
+    )
+    item = plan[0]
+    apply_rename_plan(plan)
+
+    assert item.destination.read_bytes() == b"game"
+    assert folder.exists()
+    assert note.read_text(encoding="utf-8") == "keep me"
+
+
+def test_flat_root_shared_folder_is_removed_only_after_last_file_moves(tmp_path: Path) -> None:
+    shared = tmp_path / "Shared"
+    shared.mkdir()
+    first = shared / "a.ffpfsc"
+    second = shared / "b.ffpfsc"
+    first.write_bytes(b"a")
+    second.write_bytes(b"b")
+
+    plan = build_rename_plan(
+        [
+            (first, _metadata("PPSA01285", "Returnal")),
+            (second, _metadata("PPSA05366", "A Plague Tale Requiem", "01.005.000")),
+        ],
+        _full_options(FOLDER_ROOT_FLAT),
+        library_root=tmp_path,
+    )
+
+    assert all(item.status is PlanStatus.READY for item in plan)
+    apply_rename_plan(plan)
+    assert not shared.exists()
+    assert plan[0].destination.read_bytes() == b"a"
+    assert plan[1].destination.read_bytes() == b"b"
 
 
 def test_flat_root_existing_destination_is_collision(tmp_path: Path) -> None:
@@ -136,6 +185,7 @@ def test_one_folder_per_game_loose_file_creates_top_level_folder(tmp_path: Path)
     assert item.status is PlanStatus.READY
     assert item.source_directory is None
     assert item.target_directory == expected_folder
+    assert item.cleanup_directories == ()
     assert item.destination == expected_folder / "PPSA01285 - Returnal - v1.0.ffpfsc"
 
     completed = apply_rename_plan(plan)

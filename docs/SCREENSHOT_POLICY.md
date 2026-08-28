@@ -2,25 +2,27 @@
 
 `docs/screenshots/app-preview.svg` is the canonical visual preview used by the project README.
 
-## Rule
+## Non-optional rule
 
-Any pull request that materially changes the visible desktop UI must update the preview in the same pull request.
+Every pull request or release refresh that materially changes the visible desktop UI must update the preview in the same change set. The preview must represent the interface users will actually receive; a stale preview must not be merged into `main`.
 
 Examples that require a preview refresh:
 
-- new or removed panels, tabs, menus or buttons;
-- layout or spacing changes;
-- new visible features;
-- theme, colors or icon changes;
+- new, removed or reorganized panels, tabs, menus or buttons;
+- layout, spacing, footer or table-size changes;
+- new visible features or changed user-facing behavior/help text;
+- theme, colors, branding or icon changes;
 - result-table structure changes;
-- progress/log/details UI changes.
+- progress, log, details, confirmation-dialog or Options UI changes.
 
-The preview does not need to change for backend-only work that has no visible effect.
+Backend-only changes with no visible desktop effect do not require a preview change.
 
-## Why this is enforced
+## CI enforcement
 
-The README should show the application users will actually receive, not a historical interface from an older release. CI checks GUI-related changes and reports an error when the preview was not updated in the same change set.
+`tools/check_readme_preview.py` is run by GitHub Actions. It treats the canonical desktop shell, `ui/` mixins, legacy/current GUI modules, theme/icon files and branding assets as visible UI paths. If one of those paths changes without `docs/screenshots/app-preview.svg` changing in the same PR/commit, CI must fail.
+
+The checker itself has regression coverage so new `ui/` mixin changes cannot silently bypass this rule.
 
 ## Release rule
 
-Before a tagged release, the preview must represent the final release UI. Development previews may show the current feature branch, but stale screenshots must not be merged into `main`.
+Before a tagged release or a refresh of the existing `v0.5.0` package, the preview must represent the final release UI. Development previews may show the current feature branch, but stale screenshots must not be merged or published.

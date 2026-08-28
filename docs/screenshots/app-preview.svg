@@ -2,112 +2,143 @@
   <rect width="1440" height="1000" rx="16" fill="#0b0911"/>
   <rect width="220" height="1000" fill="#100d18"/>
   <g font-family="Segoe UI, Arial, sans-serif">
+    <!-- Sidebar -->
     <rect x="18" y="24" width="184" height="78" rx="14" fill="#071f4b" stroke="#21d7e8"/>
     <text x="30" y="55" fill="#f2eff8" font-size="15" font-weight="700">PS5 <tspan fill="#b56dff">FF</tspan><tspan fill="#29d9e6">PFSC</tspan></text>
     <text x="30" y="79" fill="#f2eff8" font-size="15" font-weight="700">Renamer</text>
-    <text x="30" y="97" fill="#746c82" font-size="9">official project branding</text>
-    <text x="24" y="132" fill="#746c82" font-size="12">v0.5.0</text>
+    <text x="30" y="97" fill="#746c82" font-size="9">v0.5.0 • Windows desktop</text>
 
-    <text x="24" y="178" fill="#746c82" font-size="11">WORKSPACE</text>
-    <rect x="0" y="192" width="220" height="48" fill="#241632"/>
-    <text x="28" y="222" fill="#c08ce8" font-size="14" font-weight="700">▣  Library</text>
+    <text x="24" y="154" fill="#746c82" font-size="11">WORKSPACE</text>
+    <rect x="0" y="168" width="220" height="48" fill="#241632"/>
+    <text x="28" y="198" fill="#c08ce8" font-size="14" font-weight="700">▣  Library</text>
 
-    <text x="24" y="284" fill="#746c82" font-size="11">ENGINE</text>
-    <rect x="18" y="300" width="184" height="70" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="330" fill="#f2eff8" font-size="14" font-weight="700">MkPFS</text>
-    <circle cx="38" cy="352" r="4" fill="#57c7a5"/>
-    <text x="50" y="357" fill="#57c7a5" font-size="12">Detected • silent</text>
+    <text x="24" y="260" fill="#746c82" font-size="11">ENGINE</text>
+    <rect x="18" y="276" width="184" height="70" rx="5" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="306" fill="#f2eff8" font-size="14" font-weight="700">MkPFS helper</text>
+    <circle cx="38" cy="328" r="4" fill="#57c7a5"/>
+    <text x="50" y="333" fill="#57c7a5" font-size="11">Detected • low-memory</text>
 
-    <text x="24" y="414" fill="#746c82" font-size="11">CACHE</text>
-    <rect x="18" y="430" width="184" height="154" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="460" fill="#d7d1e1" font-size="13" font-weight="700">Metadata DB</text>
-    <text x="34" y="496" fill="#a875d6" font-size="25" font-weight="700">132</text>
-    <text x="34" y="520" fill="#9f97ad" font-size="11">verified + failure cache</text>
-    <rect x="32" y="538" width="156" height="32" rx="4" fill="#251e34" stroke="#342a48"/>
-    <text x="82" y="559" fill="#f2eff8" font-size="11" font-weight="700">Options</text>
+    <text x="24" y="390" fill="#746c82" font-size="11">CACHE</text>
+    <rect x="18" y="406" width="184" height="138" rx="5" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="436" fill="#d7d1e1" font-size="13" font-weight="700">Metadata DB</text>
+    <text x="34" y="472" fill="#a875d6" font-size="25" font-weight="700">142</text>
+    <text x="34" y="496" fill="#9f97ad" font-size="11">verified + failure cache</text>
+    <rect x="32" y="510" width="156" height="26" rx="4" fill="#251e34" stroke="#342a48"/>
+    <text x="82" y="528" fill="#f2eff8" font-size="10" font-weight="700">Options</text>
 
-    <rect x="18" y="606" width="184" height="146" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="636" fill="#d7d1e1" font-size="12" font-weight="700">Library health</text>
-    <text x="34" y="660" fill="#57c7a5" font-size="11">● 2 roots online</text>
-    <text x="34" y="680" fill="#d8ae63" font-size="11">● 1 root unavailable</text>
-    <text x="34" y="700" fill="#57c7a5" font-size="11">✓ Undo + verification</text>
-    <text x="34" y="720" fill="#c08ce8" font-size="10">Problem actions available</text>
-    <text x="34" y="740" fill="#c08ce8" font-size="10">Duplicate Manager available</text>
+    <rect x="18" y="566" width="184" height="138" rx="5" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="596" fill="#d7d1e1" font-size="12" font-weight="700">Library health</text>
+    <text x="34" y="620" fill="#57c7a5" font-size="11">● 1 root online</text>
+    <text x="34" y="642" fill="#57c7a5" font-size="11">✓ Undo + verification</text>
+    <text x="34" y="664" fill="#c08ce8" font-size="10">Duplicate Manager</text>
+    <text x="34" y="684" fill="#c08ce8" font-size="10">Problem actions</text>
 
-    <g font-size="11" font-weight="600">
-      <rect x="242" y="20" width="48" height="28" rx="5" fill="#15111f"/><text x="256" y="39" fill="#d7d1e1">File</text>
-      <rect x="294" y="20" width="48" height="28" rx="5" fill="#15111f"/><text x="306" y="39" fill="#d7d1e1">Edit</text>
-      <rect x="346" y="20" width="54" height="28" rx="5" fill="#15111f"/><text x="358" y="39" fill="#d7d1e1">Tools</text>
-      <rect x="404" y="20" width="54" height="28" rx="5" fill="#15111f"/><text x="417" y="39" fill="#d7d1e1">Help</text>
+    <!-- Native menu area -->
+    <rect x="220" y="0" width="1220" height="46" fill="#15111f"/>
+    <g fill="#d7d1e1" font-size="12">
+      <text x="242" y="29">File</text>
+      <text x="290" y="29">Edit</text>
+      <text x="338" y="29">Tools</text>
+      <text x="395" y="29">Help</text>
     </g>
-    <text x="242" y="82" fill="#f2eff8" font-size="31" font-weight="700">Library Renamer</text>
-    <text x="242" y="108" fill="#9f97ad" font-size="13">Cached scans, offline-root handling, safe rename plans, feedback reporting and game details.</text>
 
+    <!-- Header -->
+    <text x="242" y="88" fill="#f2eff8" font-size="30" font-weight="700">Library Renamer</text>
+    <text x="242" y="112" fill="#9f97ad" font-size="12">Scan, review, organize and rename your FFPFSC library without rewriting game data.</text>
+
+    <!-- Stats -->
     <g>
-      <rect x="242" y="128" width="270" height="78" fill="#1c1728" stroke="#a875d6" stroke-width="2"/>
-      <text x="260" y="160" fill="#f2eff8" font-size="27" font-weight="700">132</text><text x="260" y="187" fill="#9f97ad" font-size="11">FILES FOUND</text>
-      <rect x="524" y="128" width="270" height="78" fill="#1c1728" stroke="#d8ae63" stroke-width="2"/>
-      <text x="542" y="160" fill="#f2eff8" font-size="27" font-weight="700">127</text><text x="542" y="187" fill="#9f97ad" font-size="11">FROM CACHE</text>
-      <rect x="806" y="128" width="270" height="78" fill="#1c1728" stroke="#57c7a5" stroke-width="2"/>
-      <text x="824" y="160" fill="#f2eff8" font-size="27" font-weight="700">124</text><text x="824" y="187" fill="#9f97ad" font-size="11">READY</text>
-      <rect x="1088" y="128" width="270" height="78" fill="#1c1728" stroke="#df6877" stroke-width="2"/>
-      <text x="1106" y="160" fill="#f2eff8" font-size="27" font-weight="700">8</text><text x="1106" y="187" fill="#9f97ad" font-size="11">BLOCKED / ERRORS</text>
+      <rect x="242" y="130" width="270" height="70" fill="#1c1728" stroke="#a875d6" stroke-width="2"/>
+      <text x="260" y="160" fill="#f2eff8" font-size="25" font-weight="700">144</text><text x="260" y="184" fill="#9f97ad" font-size="10">FILES FOUND</text>
+      <rect x="524" y="130" width="270" height="70" fill="#1c1728" stroke="#d8ae63" stroke-width="2"/>
+      <text x="542" y="160" fill="#f2eff8" font-size="25" font-weight="700">142</text><text x="542" y="184" fill="#9f97ad" font-size="10">FROM CACHE</text>
+      <rect x="806" y="130" width="270" height="70" fill="#1c1728" stroke="#57c7a5" stroke-width="2"/>
+      <text x="824" y="160" fill="#f2eff8" font-size="25" font-weight="700">134</text><text x="824" y="184" fill="#9f97ad" font-size="10">READY</text>
+      <rect x="1088" y="130" width="270" height="70" fill="#1c1728" stroke="#df6877" stroke-width="2"/>
+      <text x="1106" y="160" fill="#f2eff8" font-size="25" font-weight="700">10</text><text x="1106" y="184" fill="#9f97ad" font-size="10">BLOCKED / PARTIAL</text>
     </g>
 
-    <rect x="242" y="220" width="508" height="190" rx="5" fill="#1c1728"/>
-    <text x="260" y="250" fill="#f2eff8" font-size="16" font-weight="700">FFPFSC library</text>
-    <text x="260" y="273" fill="#9f97ad" font-size="11">3 folders selected • 2 online • 1 unavailable</text>
-    <rect x="260" y="292" width="278" height="36" fill="#251e34" stroke="#342a48"/><text x="272" y="315" fill="#d7d1e1" font-family="Consolas" font-size="12">G:\PS5\FFPFSC</text>
-    <rect x="548" y="292" width="88" height="36" fill="#251e34" stroke="#a875d6"/><text x="567" y="315" fill="#f2eff8" font-size="12">Browse</text>
-    <rect x="646" y="292" width="92" height="36" fill="#251e34" stroke="#a875d6"/><text x="658" y="315" fill="#f2eff8" font-size="12">+ Add folder</text>
-    <rect x="260" y="344" width="112" height="34" rx="3" fill="#251e34" stroke="#d8ae63"/><text x="274" y="366" fill="#d8ae63" font-size="11">Folders (3)...</text>
-    <rect x="610" y="338" width="128" height="42" rx="3" fill="#a875d6"/><text x="631" y="364" fill="#ffffff" font-size="13" font-weight="700">Scan library</text>
-    <text x="260" y="398" fill="#57c7a5" font-size="10">ONLINE  G:\PS5\FFPFSC</text><text x="470" y="398" fill="#d8ae63" font-size="10">OFFLINE  Z:\Archive • preserved read-only</text>
+    <!-- Compact configuration with tabs -->
+    <rect x="242" y="214" width="1116" height="250" rx="6" fill="#1c1728" stroke="#342a48"/>
+    <text x="258" y="238" fill="#746c82" font-size="9" font-weight="700">CONFIGURATION</text>
 
-    <rect x="762" y="220" width="596" height="190" rx="5" fill="#1c1728"/>
-    <text x="780" y="250" fill="#f2eff8" font-size="16" font-weight="700">Filename Builder</text>
-    <text x="780" y="273" fill="#9f97ad" font-size="11">Profiles, free component order and instant output preview.</text>
-    <rect x="1242" y="234" width="96" height="30" rx="3" fill="#251e34" stroke="#a875d6"/><text x="1260" y="254" fill="#d7d1e1" font-size="11">Profiles...</text>
-    <rect x="780" y="290" width="216" height="34" fill="#251e34" stroke="#342a48"/><text x="793" y="312" fill="#d7d1e1" font-size="12">PPSA → Title → Version</text>
-    <rect x="1010" y="290" width="328" height="34" fill="#251e34" stroke="#342a48"/><text x="1023" y="312" fill="#d7d1e1" font-size="12">Smart (recommended)</text>
-    <rect x="780" y="340" width="164" height="40" fill="#251e34" stroke="#342a48"/><text x="793" y="365" fill="#f2eff8" font-size="12">☑ PPSA / Title ID</text>
-    <rect x="954" y="340" width="154" height="40" fill="#251e34" stroke="#342a48"/><text x="970" y="365" fill="#f2eff8" font-size="12">☑ Game title</text>
-    <rect x="1118" y="340" width="130" height="40" fill="#251e34" stroke="#342a48"/><text x="1135" y="365" fill="#f2eff8" font-size="12">☑ Version</text>
-    <text x="780" y="399" fill="#9f97ad" font-size="10">Preview: PPSA01285 - Returnal - v1.0.ffpfsc</text>
+    <rect x="350" y="222" width="184" height="42" rx="4" fill="#15111f" stroke="#342a48"/>
+    <text x="366" y="240" fill="#d7d1e1" font-size="11" font-weight="700">Library setup</text>
+    <text x="366" y="254" fill="#746c82" font-size="8">Folders, scan and performance</text>
 
-    <rect x="242" y="424" width="1116" height="90" rx="5" fill="#1c1728"/>
-    <text x="260" y="452" fill="#f2eff8" font-size="15" font-weight="700">Analysis</text><text x="1244" y="452" fill="#57c7a5" font-size="12">132/132 • 100%</text>
-    <rect x="260" y="468" width="1078" height="10" rx="5" fill="#251e34"/><rect x="260" y="468" width="1078" height="10" rx="5" fill="#a875d6"/>
-    <text x="260" y="499" fill="#9f97ad" font-size="10">Performance: roots 0.03s • discovery 0.11s • cache 0.08s • MkPFS 1.24s • total 1.51s • 87.4 files/s</text>
+    <rect x="542" y="222" width="202" height="42" rx="4" fill="#241632" stroke="#a875d6"/>
+    <rect x="542" y="222" width="4" height="42" fill="#a875d6"/>
+    <text x="558" y="240" fill="#c08ce8" font-size="11" font-weight="700">Rename builder</text>
+    <text x="558" y="254" fill="#9f97ad" font-size="8">Filename and library organization</text>
+    <text x="990" y="248" fill="#746c82" font-size="8">One setup panel at a time • more space for the library list</text>
 
-    <rect x="242" y="528" width="1116" height="48" rx="5" fill="#1c1728"/>
-    <text x="260" y="557" fill="#9f97ad" font-size="11">Search</text>
-    <rect x="306" y="538" width="248" height="28" fill="#251e34" stroke="#342a48"/><text x="318" y="557" fill="#746c82" font-size="11">title / PPSA / path</text>
-    <text x="574" y="557" fill="#9f97ad" font-size="11">Filter</text><rect x="616" y="538" width="108" height="28" fill="#251e34" stroke="#a875d6"/><text x="632" y="557" fill="#d7d1e1" font-size="11">ALL</text>
-    <text x="744" y="557" fill="#9f97ad" font-size="10">132 results</text>
-    <rect x="1114" y="536" width="224" height="32" rx="4" fill="#57c7a5"/><text x="1147" y="557" fill="#081711" font-size="12" font-weight="700">Apply rename plan (124)</text>
+    <text x="260" y="292" fill="#f2eff8" font-size="15" font-weight="700">Filename Builder</text>
+    <text x="380" y="292" fill="#9f97ad" font-size="10">Choose the final filename and library layout before applying anything.</text>
+    <text x="260" y="318" fill="#9f97ad" font-size="9">Filename preset</text>
+    <rect x="344" y="302" width="230" height="28" fill="#251e34" stroke="#342a48"/>
+    <text x="356" y="321" fill="#d7d1e1" font-size="10">PPSA → Title → Version</text>
 
-    <rect x="242" y="588" width="1116" height="230" fill="#15111f" stroke="#342a48"/>
-    <rect x="242" y="588" width="1116" height="36" fill="#251e34"/>
-    <g fill="#f2eff8" font-size="11" font-weight="700"><text x="264" y="611">Current file</text><text x="548" y="611">Title ID</text><text x="670" y="611">Title</text><text x="930" y="611">Version</text><text x="1035" y="611">Size</text><text x="1140" y="611">Proposed output</text><text x="1300" y="611">Status</text></g>
-    <g font-size="11">
-      <text x="258" y="652" fill="#57c7a5">Returnal\PPSA01285.ffpfsc</text><text x="548" y="652" fill="#57c7a5">PPSA01285</text><text x="670" y="652" fill="#57c7a5">Returnal</text><text x="930" y="652" fill="#57c7a5">01.002.000</text><text x="1035" y="652" fill="#57c7a5">56.3 GB</text><text x="1140" y="652" fill="#57c7a5">PPSA01285 - Returnal - v1.002.ffpfsc</text><text x="1300" y="652" fill="#57c7a5">READY</text>
-      <text x="258" y="692" fill="#57c7a5">Astro Bot\PPSA21564.ffpfsc</text><text x="548" y="692" fill="#57c7a5">PPSA21564</text><text x="670" y="692" fill="#57c7a5">ASTRO BOT</text><text x="930" y="692" fill="#57c7a5">01.000.000</text><text x="1035" y="692" fill="#57c7a5">34.1 GB</text><text x="1300" y="692" fill="#57c7a5">READY</text>
-      <text x="258" y="732" fill="#df6877">Ghostwire Tokyo\PPSA01337.ffpfsc</text><text x="548" y="732" fill="#df6877">PPSA01337</text><text x="670" y="732" fill="#df6877">Ghostwire: Tokyo</text><text x="930" y="732" fill="#df6877">01.009.000</text><text x="1035" y="732" fill="#df6877">27.1 GB</text><text x="1300" y="732" fill="#df6877">COLLISION</text>
-      <text x="258" y="772" fill="#d8ae63">Archive\PPSA00001.ffpfsc</text><text x="548" y="772" fill="#d8ae63">PPSA00001</text><text x="670" y="772" fill="#d8ae63">Preserved metadata</text><text x="930" y="772" fill="#d8ae63">-</text><text x="1035" y="772" fill="#d8ae63">41.9 GB</text><text x="1300" y="772" fill="#d8ae63">OFFLINE</text>
+    <text x="260" y="350" fill="#f2eff8" font-size="12" font-weight="700">Library organization</text>
+    <text x="388" y="350" fill="#9f97ad" font-size="9">Choose how the library should look after Apply changes.</text>
+
+    <rect x="260" y="362" width="338" height="68" rx="4" fill="#15111f" stroke="#342a48"/>
+    <text x="274" y="384" fill="#9f97ad" font-size="12">○</text>
+    <text x="294" y="384" fill="#d7d1e1" font-size="10" font-weight="700">One folder per game</text>
+    <text x="472" y="384" fill="#57c7a5" font-size="7" font-weight="700">RECOMMENDED</text>
+    <text x="294" y="404" fill="#746c82" font-size="8">Dedicated named folder for every game.</text>
+
+    <rect x="608" y="362" width="338" height="68" rx="4" fill="#241632" stroke="#a875d6" stroke-width="2"/>
+    <text x="622" y="384" fill="#c08ce8" font-size="12">●</text>
+    <text x="642" y="384" fill="#c08ce8" font-size="10" font-weight="700">All files in library root</text>
+    <text x="642" y="404" fill="#d7d1e1" font-size="8">Move files to root; clean empty source folders after the move.</text>
+    <text x="642" y="418" fill="#57c7a5" font-size="8">Non-empty folders are always kept.</text>
+
+    <rect x="956" y="362" width="382" height="68" rx="4" fill="#15111f" stroke="#342a48"/>
+    <text x="970" y="384" fill="#9f97ad" font-size="12">○</text>
+    <text x="990" y="384" fill="#d7d1e1" font-size="10" font-weight="700">Keep current structure</text>
+    <text x="990" y="404" fill="#746c82" font-size="8">Rename files where they are now; no folder moves.</text>
+
+    <text x="260" y="450" fill="#c08ce8" font-size="8">Example: Old folder\Returnal.ffpfsc  →  PPSA01285 - Returnal - v1.0.ffpfsc  •  empty source folder cleanup happens afterwards</text>
+
+    <!-- Analysis and command bar -->
+    <rect x="242" y="478" width="1116" height="64" rx="5" fill="#1c1728"/>
+    <text x="260" y="502" fill="#f2eff8" font-size="13" font-weight="700">Analysis</text>
+    <text x="1256" y="502" fill="#57c7a5" font-size="11">144/144 • Complete</text>
+    <rect x="260" y="514" width="1078" height="8" rx="4" fill="#251e34"/>
+    <rect x="260" y="514" width="1078" height="8" rx="4" fill="#a875d6"/>
+    <text x="260" y="536" fill="#746c82" font-size="8">Cached scan complete • low-memory metadata helper • no background helper left running</text>
+
+    <rect x="242" y="552" width="1116" height="46" rx="5" fill="#1c1728"/>
+    <text x="260" y="580" fill="#9f97ad" font-size="10">Search</text>
+    <rect x="306" y="560" width="260" height="28" fill="#251e34" stroke="#342a48"/>
+    <text x="318" y="579" fill="#746c82" font-size="10">title / PPSA / path</text>
+    <text x="584" y="580" fill="#9f97ad" font-size="10">Filter</text>
+    <rect x="626" y="560" width="108" height="28" fill="#251e34" stroke="#a875d6"/>
+    <text x="642" y="579" fill="#d7d1e1" font-size="10">ALL</text>
+    <text x="752" y="580" fill="#746c82" font-size="9">144 results</text>
+    <rect x="1130" y="558" width="208" height="32" rx="4" fill="#57c7a5"/>
+    <text x="1164" y="579" fill="#081711" font-size="11" font-weight="700">Apply changes (134)</text>
+
+    <!-- Large results table -->
+    <rect x="242" y="612" width="1116" height="304" fill="#15111f" stroke="#342a48"/>
+    <rect x="242" y="612" width="1116" height="36" fill="#251e34"/>
+    <g fill="#f2eff8" font-size="10" font-weight="700">
+      <text x="258" y="635">Current file</text><text x="548" y="635">Title ID</text><text x="670" y="635">Title</text><text x="920" y="635">Version</text><text x="1015" y="635">Size</text><text x="1120" y="635">Proposed output</text><text x="1300" y="635">Status</text>
     </g>
-    <text x="258" y="806" fill="#c08ce8" font-size="10">Offline rows stay visible but filesystem actions remain disabled until the root returns.</text>
+    <g font-size="10">
+      <text x="258" y="676" fill="#57c7a5">Returnal\PPSA01285.ffpfsc</text><text x="548" y="676" fill="#57c7a5">PPSA01285</text><text x="670" y="676" fill="#57c7a5">Returnal</text><text x="920" y="676" fill="#57c7a5">01.002.000</text><text x="1015" y="676" fill="#57c7a5">56.3 GB</text><text x="1120" y="676" fill="#57c7a5">PPSA01285 - Returnal - v1.002.ffpfsc</text><text x="1300" y="676" fill="#57c7a5">READY</text>
+      <text x="258" y="716" fill="#57c7a5">A PLAGUE REQUIEM\game.ffpfsc</text><text x="548" y="716" fill="#57c7a5">PPSA05366</text><text x="670" y="716" fill="#57c7a5">A Plague Tale Requiem</text><text x="920" y="716" fill="#57c7a5">01.005.000</text><text x="1015" y="716" fill="#57c7a5">48.8 GB</text><text x="1300" y="716" fill="#57c7a5">READY</text>
+      <text x="258" y="756" fill="#57c7a5">Atomic Heart.ffpfsc</text><text x="548" y="756" fill="#57c7a5">PPSA10695</text><text x="670" y="756" fill="#57c7a5">Atomic Heart</text><text x="920" y="756" fill="#57c7a5">01.011.000</text><text x="1015" y="756" fill="#57c7a5">74.1 GB</text><text x="1300" y="756" fill="#57c7a5">READY</text>
+      <text x="258" y="796" fill="#d8ae63">Unknown\PPSA00001.ffpfsc</text><text x="548" y="796" fill="#d8ae63">PPSA00001</text><text x="670" y="796" fill="#d8ae63">Partial metadata</text><text x="920" y="796" fill="#d8ae63">-</text><text x="1015" y="796" fill="#d8ae63">41.9 GB</text><text x="1300" y="796" fill="#d8ae63">PARTIAL</text>
+      <text x="258" y="836" fill="#df6877">Duplicate\game.ffpfsc</text><text x="548" y="836" fill="#df6877">PPSA01337</text><text x="670" y="836" fill="#df6877">Ghostwire: Tokyo</text><text x="920" y="836" fill="#df6877">01.009.000</text><text x="1015" y="836" fill="#df6877">27.1 GB</text><text x="1300" y="836" fill="#df6877">COLLISION</text>
+    </g>
+    <text x="258" y="892" fill="#746c82" font-size="9">All files in library root: files move first; only directories left completely empty are removed afterwards.</text>
 
-    <rect x="242" y="832" width="1116" height="90" rx="5" fill="#1c1728"/>
-    <text x="260" y="860" fill="#f2eff8" font-size="14" font-weight="700">Advanced workflow</text>
-    <text x="260" y="884" fill="#9f97ad" font-size="10">Sidebar → Options • Tools → Duplicate Manager • Library Health • Scan performance</text>
-    <text x="260" y="904" fill="#9f97ad" font-size="10">Help → Feedback &amp; Bug Report... • automatic sanitized crash report • local queue when endpoint is unavailable</text>
-    <text x="900" y="884" fill="#c08ce8" font-size="10">Edit → select ADDED / CHANGED / all scan changes</text>
-    <text x="945" y="904" fill="#c08ce8" font-size="10">Ctrl+Shift+P problems • Ctrl+Shift+D duplicates</text>
-    <text x="260" y="932" fill="#9f97ad" font-size="9">132 visible • 3 selected • roots 2/3 online • 8 problems • 2 duplicate groups • changes +5 / ~2</text>
-
-    <rect x="242" y="946" width="1116" height="34" rx="5" fill="#15111f"/>
-    <text x="260" y="968" fill="#9f97ad" font-size="9">Activity log: cached scan complete • 1 unavailable root preserved as OFFLINE • feedback reporting ready</text>
-    <text x="1222" y="968" fill="#746c82" font-size="8">Created by XaRaBaS</text>
+    <!-- Separated footer -->
+    <rect x="242" y="932" width="1116" height="1" fill="#342a48"/>
+    <text x="258" y="964" fill="#9f97ad" font-size="9">Ready • 144 files • 134 READY • 10 blocked/partial</text>
+    <rect x="1180" y="944" width="178" height="30" rx="4" fill="#15111f" stroke="#342a48"/>
+    <text x="1194" y="963" fill="#746c82" font-size="7" font-weight="700">PROJECT BY</text>
+    <text x="1256" y="963" fill="#c08ce8" font-size="9" font-weight="700">XaRaBaS  ↗</text>
   </g>
 </svg>

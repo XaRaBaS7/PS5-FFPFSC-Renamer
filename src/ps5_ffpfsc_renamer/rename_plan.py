@@ -31,6 +31,11 @@ class RenamePlanItem:
     reason: str = ""
     target_directory: Path | None = None
     source_directory: Path | None = None
+    # Deepest-first source directories that may be removed after a successful
+    # move. The executor uses rmdir only, so a directory containing any other
+    # file/subdirectory is always retained. The selected library root is never
+    # included here.
+    cleanup_directories: tuple[Path, ...] = ()
 
     @property
     def can_apply(self) -> bool:
@@ -74,18 +79,45 @@ def _resolve_library_root(source: Path, roots: tuple[Path, ...]) -> Path | None:
     return max(matches, key=lambda item: len(item.parts))
 
 
+def _flat_cleanup_directories(source: Path, root: Path) -> tuple[Path, ...]:
+    """Return deepest-first source ancestors eligible for empty-dir cleanup.
+
+    Cleanup is deliberately limited to ancestors between the source file and
+    its selected library root. The root itself is never returned. Actual
+    deletion is performed later with ``Path.rmdir()``, after the file has been
+    moved successfully, so non-empty folders cannot be removed.
+    """
+    source_parent = source.parent.resolve()
+    root = root.resolve()
+    try:
+        source_parent.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("source folder is outside the selected library root") from exc
+
+    directories: list[Path] = []
+    current = source_parent
+    root_key = _path_key(root)
+    while _path_key(current) != root_key:
+        directories.append(current)
+        parent = current.parent
+        if _path_key(parent) == _path_key(current):
+            raise ValueError("unable to resolve source-folder cleanup boundary")
+        current = parent
+    return tuple(directories)
+
+
 def _destination_for(
     source: Path,
     metadata: GameMetadata,
     options: NamingOptions,
     library_root: Path | None,
-) -> tuple[Path, Path | None, Path | None]:
+) -> tuple[Path, Path | None, Path | None, tuple[Path, ...]]:
     stem = build_output_stem(metadata, options)
     filename = f"{stem}.ffpfsc"
     mode = effective_folder_handling(options)
 
     if mode == FOLDER_KEEP_STRUCTURE:
-        return source.with_name(filename), None, None
+        return source.with_name(filename), None, None, ()
 
     parent = source.parent.resolve()
     root = (library_root or parent).resolve()
@@ -95,7 +127,7 @@ def _destination_for(
         raise ValueError("source folder is outside the selected library root") from exc
 
     if mode == FOLDER_ROOT_FLAT:
-        return root / filename, None, None
+        return root / filename, None, None, _flat_cleanup_directories(source, root)
 
     if mode != FOLDER_ONE_PER_GAME:
         raise ValueError(f"Unsupported folder handling mode: {mode}")
@@ -104,7 +136,7 @@ def _destination_for(
 
     # Already in the correct game folder: only the file itself may need a new name.
     if _path_key(parent) == _path_key(target_directory):
-        return target_directory / filename, None, None
+        return target_directory / filename, None, None, ()
 
     # A direct child containing exactly one FFPFSC is already a dedicated game
     # folder. Rename the folder instead of creating another one so companion
@@ -112,13 +144,12 @@ def _destination_for(
     if _path_key(parent) != _path_key(root) and _path_key(parent.parent) == _path_key(root):
         ffpfsc_files = _ffpfsc_children(parent)
         if len(ffpfsc_files) == 1:
-            return target_directory / filename, target_directory, parent
+            return target_directory / filename, target_directory, parent, ()
 
     # Loose files, files inside shared folders, or files nested deeper in the
     # library are moved into a fresh top-level per-game folder. Existing source
-    # folders are deliberately left in place; only empty-directory cleanup may
-    # be considered separately and never happens implicitly here.
-    return target_directory / filename, target_directory, None
+    # folders are deliberately left in place for this mode.
+    return target_directory / filename, target_directory, None, ()
 
 
 def build_rename_plan(
@@ -141,7 +172,16 @@ def build_rename_plan(
     destinations: dict[str, int] = {}
     directory_targets: dict[str, int] = {}
     provisional: list[
-        tuple[Path, Path, Path | None, Path | None, Path | None, GameMetadata, str | None]
+        tuple[
+            Path,
+            Path,
+            Path | None,
+            Path | None,
+            tuple[Path, ...],
+            Path | None,
+            GameMetadata,
+            str | None,
+        ]
     ] = []
 
     for source, metadata in items:
@@ -151,10 +191,11 @@ def build_rename_plan(
             destination = source
             target_directory = None
             source_directory = None
+            cleanup_directories: tuple[Path, ...] = ()
             error = "source folder is outside the selected library roots"
         else:
             try:
-                destination, target_directory, source_directory = _destination_for(
+                destination, target_directory, source_directory, cleanup_directories = _destination_for(
                     source,
                     metadata,
                     options,
@@ -165,10 +206,20 @@ def build_rename_plan(
                 destination = source
                 target_directory = None
                 source_directory = None
+                cleanup_directories = ()
                 error = str(exc)
 
         provisional.append(
-            (source, destination, target_directory, source_directory, root, metadata, error)
+            (
+                source,
+                destination,
+                target_directory,
+                source_directory,
+                cleanup_directories,
+                root,
+                metadata,
+                error,
+            )
         )
         if error is None:
             destination_key = _path_key(destination)
@@ -178,7 +229,16 @@ def build_rename_plan(
                 directory_targets[directory_key] = directory_targets.get(directory_key, 0) + 1
 
     result: list[RenamePlanItem] = []
-    for source, destination, target_directory, source_directory, root, metadata, error in provisional:
+    for (
+        source,
+        destination,
+        target_directory,
+        source_directory,
+        cleanup_directories,
+        root,
+        metadata,
+        error,
+    ) in provisional:
         def add(status: PlanStatus, reason: str = "") -> None:
             result.append(
                 RenamePlanItem(
@@ -189,6 +249,7 @@ def build_rename_plan(
                     reason=reason,
                     target_directory=target_directory,
                     source_directory=source_directory,
+                    cleanup_directories=cleanup_directories,
                 )
             )
 
@@ -203,6 +264,12 @@ def build_rename_plan(
         if source_directory is not None and root is not None and _path_key(source_directory) == _path_key(root):
             add(PlanStatus.INVALID, "selected library root cannot be renamed")
             continue
+
+        if root is not None:
+            root_key = _path_key(root)
+            if any(_path_key(directory) == root_key for directory in cleanup_directories):
+                add(PlanStatus.INVALID, "selected library root cannot be removed")
+                continue
 
         if destinations[_path_key(destination)] > 1:
             add(PlanStatus.COLLISION, "duplicate file target")

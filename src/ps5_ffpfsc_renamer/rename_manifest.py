@@ -21,6 +21,7 @@ class RenameManifestRow:
     renames_directory: bool
     source_directory: str
     target_directory: str
+    cleanup_directories: str
 
 
 FIELDS = (
@@ -34,6 +35,7 @@ FIELDS = (
     "renames_directory",
     "source_directory",
     "target_directory",
+    "cleanup_directories",
 )
 
 
@@ -53,6 +55,7 @@ def build_manifest_rows(items: Iterable[RenamePlanItem]) -> list[RenameManifestR
                 renames_directory=item.renames_directory,
                 source_directory=str(item.source_directory or ""),
                 target_directory=str(item.target_directory or ""),
+                cleanup_directories=" | ".join(str(path) for path in item.cleanup_directories),
             )
         )
     return rows

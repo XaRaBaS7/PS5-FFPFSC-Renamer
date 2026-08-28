@@ -17,10 +17,12 @@ def test_filename_builder_exposes_outcome_based_organization_choices() -> None:
     assert FilenameBuilderMixin.FOLDER_KEEP_STRUCTURE_LABEL == "Keep current structure"
 
 
-def test_folder_help_explains_the_result_not_internal_smart_logic() -> None:
+def test_folder_help_explains_the_result_and_safe_flat_cleanup_order() -> None:
     source = inspect.getsource(FilenameBuilderMixin._update_folder_help)
     assert "directly under its library root" in source
     assert "moved directly into its selected library root" in source
+    assert "Only after the move succeeds" in source
+    assert "Any folder containing another file" in source
     assert "stays in its current folder" in source
     assert "multiple FFPFSC" not in source
 
@@ -28,11 +30,15 @@ def test_folder_help_explains_the_result_not_internal_smart_logic() -> None:
 def test_rename_confirmation_uses_custom_dark_review_dialog() -> None:
     rename_source = inspect.getsource(RenameSafetyMixin._rename)
     dialog_source = inspect.getsource(RenameSafetyMixin._confirm_rename_dialog)
+    organization_source = inspect.getsource(RenameSafetyMixin._organization_confirmation_text)
     assert "_confirm_rename_dialog" in rename_source
     assert "askyesno" not in rename_source
     assert "Review changes" in dialog_source
     assert "FFPFSC contents are never rewritten or recompressed" in dialog_source
     assert "Apply {report.ready_count} changes" in dialog_source
+    assert "EMPTY FOLDER CHECKS" in dialog_source
+    assert "Only after each move succeeds" in organization_source
+    assert "Folders containing any other file or subfolder stay untouched" in organization_source
 
 
 def test_footer_credit_is_inset_and_presented_as_project_credit() -> None:

@@ -11,9 +11,11 @@ class RenameStep:
     """One filesystem mutation performed by a rename plan.
 
     ``mkdir`` stores the created directory in ``destination`` and leaves
-    ``source`` as ``None``. Rename steps use both paths. Keeping these steps
-    explicit lets the GUI persist a durable operation history and undo a
-    completed transaction without touching FFPFSC contents.
+    ``source`` as ``None``. ``cleanup_dir`` represents a best-effort rmdir of
+    an empty source directory after a file has already been moved safely.
+    Rename steps use both paths. Keeping these steps explicit lets the GUI
+    persist a durable operation history and undo a completed transaction
+    without touching FFPFSC contents.
     """
 
     kind: str
@@ -39,15 +41,14 @@ def build_forward_steps(plan: list[RenamePlanItem]) -> list[RenameStep]:
             moved_source = item.target_directory / item.source.name
             if moved_source != item.destination:
                 steps.append(RenameStep("rename_file", moved_source, item.destination))
-            continue
-
-        if item.target_directory is not None:
+        elif item.target_directory is not None:
             steps.append(RenameStep("mkdir", None, item.target_directory))
             steps.append(RenameStep("rename_file", item.source, item.destination))
-            continue
-
-        if item.source != item.destination:
+        elif item.source != item.destination:
             steps.append(RenameStep("rename_file", item.source, item.destination))
+
+        for directory in item.cleanup_directories:
+            steps.append(RenameStep("cleanup_dir", None, directory))
 
     return steps
 
@@ -60,8 +61,10 @@ def undo_forward_steps(
     """Reverse previously completed forward steps.
 
     The function never deletes files. A directory created by a forward plan is
-    removed only when it is empty. If the user placed anything else inside it
-    after the rename, the directory is deliberately left in place.
+    removed only when it is empty. A source directory removed by ``cleanup_dir``
+    is recreated before its file is moved back. If the user placed anything
+    else inside an application-created directory after the rename, that
+    directory is deliberately left in place.
     """
     retained_dirs: list[Path] = []
     for step in reversed(steps):
@@ -75,6 +78,15 @@ def undo_forward_steps(
             if original.exists():
                 raise FileExistsError(original)
             current.rename(original)
+            continue
+
+        if step.kind == "cleanup_dir":
+            directory = step.destination
+            if directory.exists():
+                if not directory.is_dir():
+                    raise NotADirectoryError(directory)
+                continue
+            directory.mkdir(parents=False, exist_ok=False)
             continue
 
         if step.kind == "mkdir":
@@ -102,6 +114,19 @@ def _redo_steps(steps: list[RenameStep]) -> None:
         if step.kind == "mkdir":
             step.destination.mkdir(parents=False, exist_ok=False)
             continue
+        if step.kind == "cleanup_dir":
+            directory = step.destination
+            if not directory.exists():
+                continue
+            if not directory.is_dir():
+                raise NotADirectoryError(directory)
+            try:
+                directory.rmdir()
+            except OSError:
+                # A cleanup step is intentionally best-effort. Any unrelated
+                # content means the folder must remain untouched.
+                pass
+            continue
         if step.kind in {"rename_file", "rename_dir"}:
             if step.source is None:
                 raise ValueError(f"Missing source for {step.kind}")
@@ -114,11 +139,31 @@ def _redo_steps(steps: list[RenameStep]) -> None:
         raise ValueError(f"Unsupported rename step: {step.kind}")
 
 
+def _cleanup_empty_source_directories(directories: tuple[Path, ...]) -> None:
+    """Remove only source directories that are empty after the file move.
+
+    ``Path.rmdir`` is deliberately used instead of recursive deletion. Any
+    unrelated file, hidden file or subdirectory makes rmdir fail and the folder
+    is retained. Candidates are deepest-first so now-empty parents can also be
+    removed, stopping before the selected library root.
+    """
+    for directory in directories:
+        try:
+            directory.rmdir()
+        except FileNotFoundError:
+            continue
+        except OSError:
+            # Non-empty, in use, permissions, or another filesystem condition:
+            # retaining the folder is always safer than escalating to deletion.
+            continue
+
+
 def _apply_one(item: RenamePlanItem) -> tuple[Path, Path]:
     old_source = item.source
 
-    # Smart mode: rename the existing dedicated folder first, then rename the
-    # FFPFSC inside it. If the file rename fails, restore the old folder name.
+    # One-folder-per-game mode: rename the existing dedicated folder first,
+    # then rename the FFPFSC inside it. If the file rename fails, restore the
+    # old folder name.
     if item.source_directory is not None and item.target_directory is not None:
         source_directory = item.source_directory
         target_directory = item.target_directory
@@ -140,7 +185,7 @@ def _apply_one(item: RenamePlanItem) -> tuple[Path, Path]:
                 target_directory.rename(source_directory)
             except OSError as rollback_exc:
                 raise RenameTransactionError(
-                    "Smart-folder rename failed and the original folder name could not be restored. "
+                    "Folder rename failed and the original folder name could not be restored. "
                     f"Rename error: {exc}. Rollback error: {rollback_exc}"
                 ) from exc
             raise
@@ -167,10 +212,13 @@ def _apply_one(item: RenamePlanItem) -> tuple[Path, Path]:
             raise
         return old_source, item.destination
 
-    # File-only mode, or Smart mode where the folder name was already correct.
+    # Keep-current-structure or flat-root mode. The file move/rename happens
+    # first. Flat-root source directories are considered for cleanup only after
+    # that move has succeeded, and only empty directories can be removed.
     if item.destination.exists() and item.destination != item.source:
         raise FileExistsError(item.destination)
     item.source.rename(item.destination)
+    _cleanup_empty_source_directories(item.cleanup_directories)
     return old_source, item.destination
 
 
