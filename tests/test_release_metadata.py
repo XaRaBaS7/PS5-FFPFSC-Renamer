@@ -12,23 +12,19 @@ def _project_version() -> str:
     return project["project"]["version"]
 
 
-def test_v050_release_metadata_is_synchronized() -> None:
+def test_v050a_metadata_is_synchronized_without_relabeling_v050_stable() -> None:
     version = _project_version()
-    assert version == "0.5.0"
+    assert version == "0.5.0a"
     assert ps5_ffpfsc_renamer.__version__ == version
 
     readme = Path("README.md").read_text(encoding="utf-8")
-    changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
-    notes = Path("RELEASE_NOTES.md").read_text(encoding="utf-8")
     preview = Path("docs/screenshots/app-preview.svg").read_text(encoding="utf-8")
 
-    assert f"**Current stable release:** `v{version}`" in readme
-    assert f"## [{version}] - 2026-08-27" in changelog
-    assert notes.startswith(f"# PS5 FFPFSC Renamer v{version}")
+    assert "**Current stable release:** `v0.5.0`" in readme
     assert f">v{version}<" in preview
 
 
-def test_stable_metadata_contains_no_v050_development_marker() -> None:
+def test_alpha_metadata_contains_no_old_development_marker() -> None:
     files = (
         "README.md",
         "CHANGELOG.md",

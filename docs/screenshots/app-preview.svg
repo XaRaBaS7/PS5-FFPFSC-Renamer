@@ -1,144 +1,87 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000">
-  <rect width="1440" height="1000" rx="16" fill="#0b0911"/>
-  <rect width="220" height="1000" fill="#100d18"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" rx="16" fill="#0b0911"/>
+  <rect width="220" height="900" fill="#100d18"/>
   <g font-family="Segoe UI, Arial, sans-serif">
-    <!-- Sidebar -->
-    <rect x="18" y="24" width="184" height="78" rx="14" fill="#071f4b" stroke="#21d7e8"/>
-    <text x="30" y="55" fill="#f2eff8" font-size="15" font-weight="700">PS5 <tspan fill="#b56dff">FF</tspan><tspan fill="#29d9e6">PFSC</tspan></text>
-    <text x="30" y="79" fill="#f2eff8" font-size="15" font-weight="700">Renamer</text>
-    <text x="30" y="97" fill="#746c82" font-size="9">v0.5.0</text>
-    <text x="75" y="97" fill="#746c82" font-size="9">• Windows desktop</text>
-    <text x="24" y="154" fill="#746c82" font-size="11">WORKSPACE</text>
-    <rect x="0" y="168" width="220" height="48" fill="#241632"/>
-    <text x="28" y="198" fill="#c08ce8" font-size="14" font-weight="700">▣  Library</text>
-    <text x="24" y="260" fill="#746c82" font-size="11">ENGINE</text>
-    <rect x="18" y="276" width="184" height="70" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="306" fill="#f2eff8" font-size="14" font-weight="700">MkPFS helper</text>
-    <circle cx="38" cy="328" r="4" fill="#57c7a5"/>
-    <text x="50" y="333" fill="#57c7a5" font-size="11">Detected • low-memory</text>
-    <text x="24" y="390" fill="#746c82" font-size="11">CACHE</text>
-    <rect x="18" y="406" width="184" height="138" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="436" fill="#d7d1e1" font-size="13" font-weight="700">Metadata DB</text>
-    <text x="34" y="472" fill="#a875d6" font-size="25" font-weight="700">142</text>
-    <text x="34" y="496" fill="#9f97ad" font-size="11">verified + failure cache</text>
-    <rect x="32" y="510" width="156" height="26" rx="4" fill="#251e34" stroke="#342a48"/>
-    <text x="82" y="528" fill="#f2eff8" font-size="10" font-weight="700">Options</text>
-    <rect x="18" y="566" width="184" height="138" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="34" y="596" fill="#d7d1e1" font-size="12" font-weight="700">Library health</text>
-    <text x="34" y="620" fill="#57c7a5" font-size="11">● 1 root online</text>
-    <text x="34" y="642" fill="#57c7a5" font-size="11">✓ Undo + verification</text>
-    <text x="34" y="664" fill="#c08ce8" font-size="10">Duplicate Manager</text>
-    <text x="34" y="684" fill="#c08ce8" font-size="10">Problem actions</text>
+    <rect x="18" y="24" width="184" height="72" rx="12" fill="#071f4b" stroke="#21d7e8"/>
+    <text x="30" y="54" fill="#f2eff8" font-size="15" font-weight="700">PS5 FFPFSC RENAMER</text>
+    <text x="30" y="80" fill="#9f97ad" font-size="10">v0.5.0a</text>
 
-    <!-- Persistent legal/creator footer -->
-    <line x1="18" y1="890" x2="202" y2="890" stroke="#342a48"/>
-    <text x="24" y="915" fill="#9f97ad" font-size="9">Homebrew &amp; personal backup tool</text>
-    <text x="24" y="936" fill="#746c82" font-size="8">Not affiliated with Sony Interactive</text>
-    <text x="24" y="949" fill="#746c82" font-size="8">Entertainment</text>
-    <text x="196" y="976" fill="#d7d1e1" font-size="9" text-anchor="end">Created by XaRaBaS</text>
+    <text x="22" y="132" fill="#746c82" font-size="10" font-weight="700">WORKSPACE</text>
+    <rect x="0" y="146" width="220" height="44" fill="#100d18"/>
+    <text x="28" y="174" fill="#d7d1e1" font-size="13" font-weight="700">▣  Local Library</text>
+    <rect x="0" y="190" width="220" height="44" fill="#241632"/>
+    <rect x="0" y="190" width="3" height="44" fill="#a875d6"/>
+    <text x="28" y="218" fill="#c08ce8" font-size="13" font-weight="700">⇄  PS5 FTP</text>
 
-    <!-- Styled command bar: restored original visual treatment -->
-    <rect x="242" y="18" width="52" height="30" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="258" y="38" fill="#d7d1e1" font-size="11" font-weight="600">File</text>
-    <rect x="300" y="18" width="52" height="30" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="314" y="38" fill="#d7d1e1" font-size="11" font-weight="600">Edit</text>
-    <rect x="358" y="18" width="60" height="30" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="372" y="38" fill="#d7d1e1" font-size="11" font-weight="600">Tools</text>
-    <rect x="424" y="18" width="58" height="30" rx="5" fill="#241632" stroke="#a875d6"/>
-    <text x="438" y="38" fill="#c08ce8" font-size="11" font-weight="700">Help</text>
-    <text x="498" y="37" fill="#746c82" font-size="9">Styled menus • functional popups • native fallback retained</text>
+    <text x="22" y="276" fill="#746c82" font-size="10" font-weight="700">ENGINE</text>
+    <rect x="18" y="290" width="184" height="64" fill="#15111f" stroke="#342a48"/>
+    <text x="34" y="316" fill="#f2eff8" font-size="12" font-weight="700">MkPFS</text>
+    <text x="34" y="340" fill="#57c7a5" font-size="10">● Detected</text>
 
-    <!-- Header -->
-    <text x="242" y="88" fill="#f2eff8" font-size="30" font-weight="700">Library Renamer</text>
-    <text x="242" y="112" fill="#9f97ad" font-size="12">Scan, review, organize and rename your FFPFSC library without rewriting game data.</text>
+    <line x1="18" y1="798" x2="202" y2="798" stroke="#342a48"/>
+    <text x="24" y="824" fill="#9f97ad" font-size="9">Homebrew &amp; personal backup tool</text>
+    <text x="24" y="844" fill="#746c82" font-size="8">Not affiliated with Sony Interactive</text>
+    <text x="24" y="857" fill="#746c82" font-size="8">Entertainment</text>
+    <text x="196" y="880" fill="#d7d1e1" font-size="9" text-anchor="end">Created by XaRaBaS</text>
 
-    <!-- Stats -->
-    <rect x="242" y="130" width="270" height="70" fill="#1c1728" stroke="#a875d6" stroke-width="2"/>
-    <text x="260" y="160" fill="#f2eff8" font-size="25" font-weight="700">144</text><text x="260" y="184" fill="#9f97ad" font-size="10">FILES FOUND</text>
-    <rect x="524" y="130" width="270" height="70" fill="#1c1728" stroke="#d8ae63" stroke-width="2"/>
-    <text x="542" y="160" fill="#f2eff8" font-size="25" font-weight="700">142</text><text x="542" y="184" fill="#9f97ad" font-size="10">FROM CACHE</text>
-    <rect x="806" y="130" width="270" height="70" fill="#1c1728" stroke="#57c7a5" stroke-width="2"/>
-    <text x="824" y="160" fill="#f2eff8" font-size="25" font-weight="700">134</text><text x="824" y="184" fill="#9f97ad" font-size="10">READY</text>
-    <rect x="1088" y="130" width="270" height="70" fill="#1c1728" stroke="#df6877" stroke-width="2"/>
-    <text x="1106" y="160" fill="#f2eff8" font-size="25" font-weight="700">10</text><text x="1106" y="184" fill="#9f97ad" font-size="10">BLOCKED / PARTIAL</text>
+    <text x="250" y="64" fill="#f2eff8" font-size="30" font-weight="700">PS5 FTP Library</text>
+    <text x="250" y="90" fill="#9f97ad" font-size="12">Browse and organize .ffpfsc files directly on the PS5 FTP filesystem.</text>
+    <text x="1320" y="64" fill="#57c7a5" font-size="12" text-anchor="end">● Connected • 192.168.1.123:1337</text>
 
-    <!-- Compact configuration tabs -->
-    <rect x="242" y="214" width="1116" height="250" rx="6" fill="#1c1728" stroke="#342a48"/>
-    <text x="258" y="238" fill="#746c82" font-size="9" font-weight="700">CONFIGURATION</text>
-    <rect x="350" y="222" width="184" height="42" rx="4" fill="#15111f" stroke="#342a48"/>
-    <text x="366" y="240" fill="#d7d1e1" font-size="11" font-weight="700">Library setup</text>
-    <text x="366" y="254" fill="#746c82" font-size="8">Folders, scan and performance</text>
-    <rect x="542" y="222" width="202" height="42" rx="4" fill="#241632" stroke="#a875d6"/>
-    <rect x="542" y="222" width="4" height="42" fill="#a875d6"/>
-    <text x="558" y="240" fill="#c08ce8" font-size="11" font-weight="700">Rename builder</text>
-    <text x="558" y="254" fill="#9f97ad" font-size="8">Filename and library organization</text>
-    <text x="990" y="248" fill="#746c82" font-size="8">One setup panel at a time • more space for the library list</text>
+    <rect x="250" y="116" width="1140" height="122" rx="6" fill="#1c1728" stroke="#342a48"/>
+    <text x="270" y="146" fill="#9f97ad" font-size="10">PS5 IP / host</text>
+    <rect x="270" y="158" width="220" height="32" fill="#251e34" stroke="#a875d6"/>
+    <text x="282" y="179" fill="#f2eff8" font-size="11">192.168.1.123</text>
+    <text x="510" y="146" fill="#9f97ad" font-size="10">Port</text>
+    <rect x="510" y="158" width="80" height="32" fill="#251e34" stroke="#342a48"/>
+    <text x="530" y="179" fill="#f2eff8" font-size="11">1337</text>
+    <text x="610" y="146" fill="#9f97ad" font-size="10">Username</text>
+    <rect x="610" y="158" width="180" height="32" fill="#251e34" stroke="#342a48"/>
+    <text x="622" y="179" fill="#f2eff8" font-size="11">anonymous</text>
+    <text x="810" y="146" fill="#9f97ad" font-size="10">Password</text>
+    <rect x="810" y="158" width="180" height="32" fill="#251e34" stroke="#342a48"/>
+    <text x="822" y="179" fill="#746c82" font-size="11">••••••••</text>
+    <rect x="1010" y="154" width="150" height="40" rx="4" fill="#251e34" stroke="#a875d6"/>
+    <text x="1040" y="179" fill="#d7d1e1" font-size="11" font-weight="700">Discover PS5</text>
+    <rect x="1170" y="154" width="110" height="40" rx="4" fill="#a875d6"/>
+    <text x="1201" y="179" fill="#ffffff" font-size="11" font-weight="700">Connect</text>
+    <text x="270" y="218" fill="#746c82" font-size="9">etaHEN default FTP port: 1337 • credentials remain in memory only</text>
 
-    <text x="260" y="292" fill="#f2eff8" font-size="15" font-weight="700">Filename Builder</text>
-    <text x="380" y="292" fill="#9f97ad" font-size="10">Choose the final filename and library layout before applying anything.</text>
-    <text x="260" y="318" fill="#9f97ad" font-size="9">Filename preset</text>
-    <rect x="344" y="302" width="230" height="28" fill="#251e34" stroke="#342a48"/>
-    <text x="356" y="321" fill="#d7d1e1" font-size="10">PPSA → Title → Version</text>
-    <text x="556" y="321" fill="#9f97ad" font-size="10">▾</text>
-    <text x="260" y="350" fill="#f2eff8" font-size="12" font-weight="700">Library organization</text>
-    <text x="388" y="350" fill="#9f97ad" font-size="9">Choose how the library should look after Apply changes.</text>
+    <rect x="250" y="254" width="1140" height="540" rx="6" fill="#1c1728" stroke="#342a48"/>
+    <text x="270" y="286" fill="#f2eff8" font-size="15" font-weight="700">PS5 Explorer</text>
+    <text x="1370" y="286" fill="#9f97ad" font-size="10" text-anchor="end">Remote library: /data/games</text>
+    <text x="270" y="324" fill="#9f97ad" font-size="10">Remote path</text>
+    <rect x="350" y="304" width="760" height="34" fill="#251e34" stroke="#342a48"/>
+    <text x="364" y="326" fill="#f2eff8" font-size="11">/data/games</text>
+    <rect x="1125" y="304" width="90" height="34" fill="#251e34" stroke="#342a48"/>
+    <text x="1158" y="326" fill="#d7d1e1" font-size="10">Up</text>
+    <rect x="1225" y="304" width="110" height="34" fill="#251e34" stroke="#342a48"/>
+    <text x="1255" y="326" fill="#d7d1e1" font-size="10">Refresh</text>
 
-    <rect x="260" y="362" width="338" height="68" rx="4" fill="#15111f" stroke="#342a48"/>
-    <text x="274" y="384" fill="#9f97ad" font-size="12">○</text>
-    <text x="294" y="384" fill="#d7d1e1" font-size="10" font-weight="700">One folder per game</text>
-    <text x="472" y="384" fill="#57c7a5" font-size="7" font-weight="700">RECOMMENDED</text>
-    <text x="294" y="404" fill="#746c82" font-size="8">Dedicated named folder for every game.</text>
+    <rect x="270" y="356" width="1100" height="350" fill="#15111f" stroke="#342a48"/>
+    <rect x="270" y="356" width="1100" height="34" fill="#251e34"/>
+    <text x="286" y="378" fill="#f2eff8" font-size="10" font-weight="700">Name</text>
+    <text x="650" y="378" fill="#f2eff8" font-size="10" font-weight="700">Type</text>
+    <text x="790" y="378" fill="#f2eff8" font-size="10" font-weight="700">Size</text>
+    <text x="930" y="378" fill="#f2eff8" font-size="10" font-weight="700">Remote path</text>
+    <text x="286" y="424" fill="#c08ce8" font-size="11">📁 updates</text>
+    <text x="650" y="424" fill="#9f97ad" font-size="10">Folder</text>
+    <text x="286" y="466" fill="#57c7a5" font-size="11">📄 PPSA01285 - Returnal - v1.002.ffpfsc</text>
+    <text x="650" y="466" fill="#57c7a5" font-size="10">FFPFSC</text>
+    <text x="790" y="466" fill="#57c7a5" font-size="10">56.3 GB</text>
+    <text x="930" y="466" fill="#57c7a5" font-size="10">/data/games/PPSA01285 - Returnal - v1.002.ffpfsc</text>
+    <text x="286" y="508" fill="#d8ae63" font-size="11">📄 game.ffpfsc</text>
+    <text x="650" y="508" fill="#d8ae63" font-size="10">FFPFSC</text>
+    <text x="790" y="508" fill="#d8ae63" font-size="10">81.9 GB</text>
+    <text x="930" y="508" fill="#d8ae63" font-size="10">/data/games/game.ffpfsc</text>
 
-    <rect x="608" y="362" width="338" height="68" rx="4" fill="#241632" stroke="#a875d6" stroke-width="2"/>
-    <text x="622" y="384" fill="#c08ce8" font-size="12">●</text>
-    <text x="642" y="384" fill="#c08ce8" font-size="10" font-weight="700">All files in library root</text>
-    <text x="642" y="404" fill="#d7d1e1" font-size="8">Move files to root; clean empty source folders afterwards.</text>
-    <text x="642" y="418" fill="#57c7a5" font-size="8">Non-empty folders are always kept.</text>
+    <rect x="270" y="724" width="220" height="40" fill="#251e34" stroke="#342a48"/>
+    <text x="295" y="749" fill="#d7d1e1" font-size="10">Use this folder as PS5 library</text>
+    <rect x="500" y="724" width="135" height="40" fill="#251e34" stroke="#342a48"/>
+    <text x="526" y="749" fill="#d7d1e1" font-size="10">Find .ffpfsc</text>
+    <rect x="1140" y="724" width="230" height="40" fill="#57c7a5"/>
+    <text x="1175" y="749" fill="#081711" font-size="10" font-weight="700">Rename selected .ffpfsc...</text>
 
-    <rect x="956" y="362" width="382" height="68" rx="4" fill="#15111f" stroke="#342a48"/>
-    <text x="970" y="384" fill="#9f97ad" font-size="12">○</text>
-    <text x="990" y="384" fill="#d7d1e1" font-size="10" font-weight="700">Keep current structure</text>
-    <text x="990" y="404" fill="#746c82" font-size="8">Rename files where they are now; no folder moves.</text>
-    <text x="260" y="450" fill="#c08ce8" font-size="8">Example: Old folder\Returnal.ffpfsc  →  PPSA01285 - Returnal - v1.0.ffpfsc</text>
-
-    <!-- Analysis and command bar -->
-    <rect x="242" y="478" width="1116" height="64" rx="5" fill="#1c1728"/>
-    <text x="260" y="502" fill="#f2eff8" font-size="13" font-weight="700">Analysis</text>
-    <text x="1256" y="502" fill="#57c7a5" font-size="11">144/144 • Complete</text>
-    <rect x="260" y="514" width="1078" height="8" rx="4" fill="#251e34"/>
-    <rect x="260" y="514" width="1078" height="8" rx="4" fill="#a875d6"/>
-    <text x="260" y="536" fill="#746c82" font-size="8">Cached scan complete • low-memory metadata helper • no background helper left running</text>
-
-    <rect x="242" y="552" width="1116" height="46" rx="5" fill="#1c1728"/>
-    <text x="260" y="580" fill="#9f97ad" font-size="10">Search</text>
-    <rect x="306" y="560" width="260" height="28" fill="#251e34" stroke="#342a48"/>
-    <text x="318" y="579" fill="#746c82" font-size="10">title / PPSA / path</text>
-    <text x="584" y="580" fill="#9f97ad" font-size="10">Filter</text>
-    <rect x="626" y="560" width="108" height="28" fill="#251e34" stroke="#a875d6"/>
-    <text x="642" y="579" fill="#d7d1e1" font-size="10">ALL</text>
-    <text x="716" y="579" fill="#c08ce8" font-size="10">▾</text>
-    <text x="752" y="580" fill="#746c82" font-size="9">144 results</text>
-    <rect x="1028" y="558" width="92" height="32" rx="4" fill="#251e34" stroke="#342a48"/>
-    <text x="1047" y="579" fill="#d7d1e1" font-size="10" font-weight="700">↶ Undo</text>
-    <rect x="1130" y="558" width="208" height="32" rx="4" fill="#57c7a5"/>
-    <text x="1164" y="579" fill="#081711" font-size="11" font-weight="700">Apply changes (134)</text>
-
-    <!-- Large results table -->
-    <rect x="242" y="612" width="1116" height="304" fill="#15111f" stroke="#342a48"/>
-    <rect x="242" y="612" width="1116" height="36" fill="#251e34"/>
-    <g fill="#f2eff8" font-size="10" font-weight="700">
-      <text x="258" y="635">Current file</text><text x="548" y="635">Title ID</text><text x="670" y="635">Title</text><text x="920" y="635">Version</text><text x="1015" y="635">Size</text><text x="1120" y="635">Proposed output</text><text x="1300" y="635">Status</text>
-    </g>
-    <g font-size="10">
-      <text x="258" y="676" fill="#57c7a5">Returnal\PPSA01285.ffpfsc</text><text x="548" y="676" fill="#57c7a5">PPSA01285</text><text x="670" y="676" fill="#57c7a5">Returnal</text><text x="920" y="676" fill="#57c7a5">01.002.000</text><text x="1015" y="676" fill="#57c7a5">56.3 GB</text><text x="1120" y="676" fill="#57c7a5">PPSA01285 - Returnal - v1.002.ffpfsc</text><text x="1300" y="676" fill="#57c7a5">READY</text>
-      <text x="258" y="716" fill="#57c7a5">A PLAGUE REQUIEM\game.ffpfsc</text><text x="548" y="716" fill="#57c7a5">PPSA05366</text><text x="670" y="716" fill="#57c7a5">A Plague Tale Requiem</text><text x="920" y="716" fill="#57c7a5">01.005.000</text><text x="1015" y="716" fill="#57c7a5">48.8 GB</text><text x="1300" y="716" fill="#57c7a5">READY</text>
-      <text x="258" y="756" fill="#57c7a5">Atomic Heart.ffpfsc</text><text x="548" y="756" fill="#57c7a5">PPSA10695</text><text x="670" y="756" fill="#57c7a5">Atomic Heart</text><text x="920" y="756" fill="#57c7a5">01.011.000</text><text x="1015" y="756" fill="#57c7a5">74.1 GB</text><text x="1300" y="756" fill="#57c7a5">READY</text>
-      <text x="258" y="796" fill="#d8ae63">Archive\PPSA00001.ffpfsc</text><text x="548" y="796" fill="#d8ae63">PPSA00001</text><text x="670" y="796" fill="#d8ae63">Preserved metadata</text><text x="920" y="796" fill="#d8ae63">-</text><text x="1015" y="796" fill="#d8ae63">41.9 GB</text><text x="1300" y="796" fill="#d8ae63">OFFLINE</text>
-    </g>
-    <text x="258" y="842" fill="#746c82" font-size="9">The library list remains the dominant workspace area; configuration stays compact above it.</text>
-
-    <!-- Footer -->
-    <line x1="242" y1="934" x2="1358" y2="934" stroke="#342a48"/>
-    <text x="258" y="963" fill="#9f97ad" font-size="9">Ready • 144 files • 134 READY • root online • Undo available for latest rename</text>
+    <text x="250" y="824" fill="#9f97ad" font-size="10">Remote rename: collision-safe • preserves .ffpfsc • verifies destination • blocks known ShadowMount exact-path references</text>
   </g>
 </svg>
