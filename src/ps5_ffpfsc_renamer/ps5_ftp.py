@@ -16,9 +16,17 @@ from typing import Iterable
 DEFAULT_FTP_PORT = 1337
 DEFAULT_FTP_USER = "anonymous"
 MAX_DISCOVERY_HOSTS = 1022
+MAX_REMOTE_SCAN_DIRECTORIES = 4096
+RFC1918_NETWORKS = tuple(
+    ipaddress.ip_network(value)
+    for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
+SHADOWMOUNT_PFSC_MOUNT_BASE = "/mnt/shadowmnt/pfsc"
 SHADOWMOUNT_REFERENCE_FILES = (
     "/data/shadowmount/config.ini",
+    "/data/shadowmount/autotune.ini",
     "/data/shadowmount/manual.lst",
+    "/data/shadowmount/manual.status",
 )
 
 
@@ -52,6 +60,16 @@ class ShadowMountReferenceError(RuntimeError):
         )
 
 
+class ShadowMountMountedError(RuntimeError):
+    def __init__(self, source_path: str, mount_point: str) -> None:
+        self.source_path = source_path
+        self.mount_point = mount_point
+        super().__init__(
+            "Remote rename blocked because the .ffpfsc currently appears to be mounted by "
+            f"ShadowMountPlus at {mount_point}. Unmount/stop the game image, then retry."
+        )
+
+
 def normalize_remote_path(path: str) -> str:
     text = (path or "/").strip().replace("\\", "/")
     if not text.startswith("/"):
@@ -82,18 +100,62 @@ def validate_remote_ffpfsc_rename(source_path: str, new_name: str) -> tuple[str,
     return source, destination
 
 
+def _fnv1a32(text: str) -> int:
+    value = 2166136261
+    for byte in text.encode("utf-8"):
+        value ^= byte
+        value = (value * 16777619) & 0xFFFFFFFF
+    return value
+
+
+def shadowmount_pfsc_mount_point(source_path: str) -> str:
+    """Return the mount point ShadowMountPlus derives for an outer .ffpfsc path."""
+    source = normalize_remote_path(source_path)
+    name = posixpath.basename(source)
+    base = name.rsplit(".", 1)[0] if "." in name else name
+    return f"{SHADOWMOUNT_PFSC_MOUNT_BASE}/{base}_{_fnv1a32(source):08x}"
+
+
+def _parse_unix_list_line(line: str, root: str) -> RemoteEntry | None:
+    """Parse the LIST format used by PS5 ftpsrv variants that lack MLSD/NLST."""
+    parts = line.rstrip("\r\n").split(maxsplit=8)
+    if len(parts) < 9:
+        return None
+    mode = parts[0]
+    name = parts[8]
+    if name in {"", ".", ".."}:
+        return None
+    if mode.startswith("l") and " -> " in name:
+        name = name.split(" -> ", 1)[0]
+    is_dir = mode.startswith("d")
+    size: int | None = None
+    if not is_dir:
+        try:
+            size = int(parts[4])
+        except ValueError:
+            size = None
+    return RemoteEntry(
+        name=name,
+        path=normalize_remote_path(posixpath.join(root, name)),
+        is_dir=is_dir,
+        size=size,
+    )
+
+
 def _private_ipv4(value: str) -> str | None:
     try:
         address = ipaddress.ip_address(value)
     except ValueError:
         return None
-    if address.version != 4 or not address.is_private or address.is_loopback or address.is_link_local:
+    if address.version != 4 or address.is_loopback or address.is_link_local:
+        return None
+    if not any(address in network for network in RFC1918_NETWORKS):
         return None
     return str(address)
 
 
 def local_private_ipv4_addresses() -> tuple[str, ...]:
-    """Return local private IPv4 addresses without sending network payloads."""
+    """Return local RFC1918 IPv4 addresses without sending network payloads."""
     found: set[str] = set()
 
     try:
@@ -140,7 +202,7 @@ def discovery_hosts(
     *,
     max_hosts: int = MAX_DISCOVERY_HOSTS,
 ) -> tuple[str, ...]:
-    """Build a bounded set of /24 LAN/Wi-Fi targets from local private IPs."""
+    """Build a bounded set of /24 LAN/Wi-Fi targets from local RFC1918 IPs."""
     addresses = tuple(local_addresses or local_private_ipv4_addresses())
     local_set = {value for value in addresses if _private_ipv4(value)}
     targets: list[str] = []
@@ -189,7 +251,7 @@ def discover_ps5_ftp(
     local_addresses: Iterable[str] | None = None,
     stop_event: threading.Event | None = None,
 ) -> list[DiscoveryCandidate]:
-    """Scan only bounded private /24 LAN/Wi-Fi ranges for the selected FTP port."""
+    """Scan only bounded RFC1918 /24 LAN/Wi-Fi ranges for the selected FTP port."""
     if not 1 <= int(port) <= 65535:
         raise ValueError("FTP port must be between 1 and 65535.")
 
@@ -241,9 +303,16 @@ class PS5FtpClient:
         if not 1 <= port <= 65535:
             raise ValueError("FTP port must be between 1 and 65535.")
 
-        welcome = self.ftp.connect(host=host, port=port, timeout=timeout)
-        self.ftp.login(user=username or DEFAULT_FTP_USER, passwd=password)
-        self.ftp.set_pasv(True)
+        try:
+            welcome = self.ftp.connect(host=host, port=port, timeout=timeout)
+            self.ftp.login(user=username or DEFAULT_FTP_USER, passwd=password)
+            self.ftp.set_pasv(True)
+        except (OSError, EOFError, ftplib.Error):
+            try:
+                self.ftp.close()
+            finally:
+                self.connected = False
+            raise
         self.host = host
         self.port = port
         self.connected = True
@@ -292,6 +361,16 @@ class PS5FtpClient:
             pass
         return self._is_directory(path)
 
+    def _list_dir_via_list(self, root: str) -> list[RemoteEntry]:
+        lines: list[str] = []
+        self.ftp.retrlines(f"LIST {root}", lines.append)
+        entries: list[RemoteEntry] = []
+        for line in lines:
+            parsed = _parse_unix_list_line(line, root)
+            if parsed is not None:
+                entries.append(parsed)
+        return entries
+
     def list_dir(self, path: str = "/") -> list[RemoteEntry]:
         self._require_connection()
         root = normalize_remote_path(path)
@@ -320,21 +399,10 @@ class PS5FtpClient:
                     )
                 )
         except (AttributeError, ftplib.Error):
-            names = self.ftp.nlst(root)
-            for raw in names:
-                full = normalize_remote_path(raw if raw.startswith("/") else posixpath.join(root, raw))
-                name = posixpath.basename(full)
-                if name in {"", ".", ".."}:
-                    continue
-                is_dir = self._is_directory(full)
-                size = None
-                if not is_dir:
-                    try:
-                        self.ftp.voidcmd("TYPE I")
-                        size = self.ftp.size(full)
-                    except ftplib.Error:
-                        size = None
-                entries.append(RemoteEntry(name=name, path=full, is_dir=is_dir, size=size))
+            # etaHEN's integrated FTP supports MLSD/NLST, but the standalone
+            # ps5-payload-dev/etaHEN ftpsrv variants can expose LIST only.
+            # LIST keeps the explorer usable on both implementations.
+            entries = self._list_dir_via_list(root)
 
         entries.sort(key=lambda item: (not item.is_dir, item.name.casefold()))
         return entries
@@ -345,6 +413,7 @@ class PS5FtpClient:
         *,
         recursive: bool = True,
         max_results: int = 10000,
+        max_directories: int = MAX_REMOTE_SCAN_DIRECTORIES,
     ) -> list[RemoteEntry]:
         self._require_connection()
         start = normalize_remote_path(root)
@@ -356,8 +425,18 @@ class PS5FtpClient:
             current = pending.pop()
             if current in seen:
                 continue
+            if len(seen) >= max_directories:
+                raise RuntimeError(
+                    f"Remote scan stopped after {max_directories} directories to avoid an unbounded traversal."
+                )
             seen.add(current)
-            for entry in self.list_dir(current):
+            try:
+                current_entries = self.list_dir(current)
+            except (OSError, ftplib.Error):
+                if current == start:
+                    raise
+                continue
+            for entry in current_entries:
                 if entry.is_dir:
                     if recursive:
                         pending.append(entry.path)
@@ -370,6 +449,14 @@ class PS5FtpClient:
 
     def read_text(self, path: str, *, max_bytes: int = 1024 * 1024) -> str:
         self._require_connection()
+        remote_path = normalize_remote_path(path)
+        try:
+            remote_size = self.ftp.size(remote_path)
+        except ftplib.Error:
+            remote_size = None
+        if remote_size is not None and remote_size > max_bytes:
+            raise ValueError(f"Remote text file exceeds {max_bytes} bytes.")
+
         chunks: list[bytes] = []
         total = 0
 
@@ -384,7 +471,7 @@ class PS5FtpClient:
             chunks.append(chunk)
 
         try:
-            self.ftp.retrbinary(f"RETR {normalize_remote_path(path)}", collect, blocksize=16384)
+            self.ftp.retrbinary(f"RETR {remote_path}", collect, blocksize=16384)
         except _LimitReached as exc:
             raise ValueError(f"Remote text file exceeds {max_bytes} bytes.") from exc
         return b"".join(chunks).decode("utf-8", errors="replace")
@@ -403,6 +490,13 @@ class PS5FtpClient:
                 matches.append(config_path)
         return tuple(matches)
 
+    def shadowmount_mount_point(self, source_path: str) -> str:
+        return shadowmount_pfsc_mount_point(source_path)
+
+    def is_shadowmount_mounted(self, source_path: str) -> bool:
+        self._require_connection()
+        return self.exists(self.shadowmount_mount_point(source_path))
+
     def rename_ffpfsc(
         self,
         source_path: str,
@@ -419,6 +513,9 @@ class PS5FtpClient:
             raise FileExistsError(f"Remote destination already exists: {destination}")
 
         if protect_shadowmount_references:
+            mount_point = self.shadowmount_mount_point(source)
+            if self.exists(mount_point):
+                raise ShadowMountMountedError(source, mount_point)
             references = self.shadowmount_references(source)
             if references:
                 raise ShadowMountReferenceError(references)
