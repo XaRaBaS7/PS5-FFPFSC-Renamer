@@ -76,7 +76,7 @@ class RenameJournalMixin:
         self._rebuild_output_plan(option_change=True)
         if self._last_rename_undo_available:
             self.status_var.set(
-                f"{label}: {len(completed)} file(s) completed — Undo or Ctrl+Z can restore the latest transaction"
+                f"{label}: {len(completed)} file(s) completed — Ctrl+Z can undo the latest transaction; Undo is also available"
             )
         else:
             self.status_var.set(
