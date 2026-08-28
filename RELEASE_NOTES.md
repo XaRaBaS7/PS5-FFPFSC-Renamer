@@ -18,9 +18,9 @@ The downloadable Windows package for this same v0.5.0 release is refreshed from 
 - Replaced the old Options tab strip with a modern vertical settings navigation.
 - Reworked the main workspace into compact **Library setup** / **Rename builder** tabs so only one configuration panel occupies vertical space at a time and the results list remains the dominant area.
 - The main workspace opens on **Library setup** by default and requests a taller results Treeview for normal library browsing.
-- Restored a real attached Tk/Windows **File / Edit / Tools / Help** menubar instead of detaching it behind an in-app Menubutton row, keeping the existing menu callbacks and shortcuts live.
+- Restored the original styled **File / Edit / Tools / Help** command row instead of replacing it with the native Windows menubar. Each visible Menubutton now owns a cloned popup menu and delegates commands to the canonical product menu, fixing the Windows click-with-no-popup issue while preserving the previous look. The native menu remains attached until the styled row has been built successfully, providing a safe fallback.
 - Moved the creator credit into a separated footer/status area with its own spacing and divider; the old results-area overlay is suppressed.
-- Refreshed the canonical README Preview so it represents the current tabbed layout, native menu, larger library list, separated footer and current library-organization controls.
+- Refreshed the canonical README Preview so it represents the current tabbed layout, styled command row, larger library list, separated footer and current library-organization controls.
 - Strengthened README Preview CI enforcement: material changes under the modern `ui/` mixins, desktop shell, theme/icons or branding now fail CI unless `docs/screenshots/app-preview.svg` is refreshed in the same change set.
 - Lowered MkPFS child-process priority on Windows and moved helper stdout/stderr to temporary files with bounded diagnostic-tail reads.
 - Added a bounded-memory metadata path in the bundled helper: PFSC block offsets use small 64 KiB pages and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
