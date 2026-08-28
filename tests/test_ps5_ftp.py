@@ -125,6 +125,17 @@ def test_discovery_is_bounded_to_private_local_24_networks() -> None:
     assert len(hosts) == 506
 
 
+def test_discovery_ignores_ipconfig_masks_and_non_rfc1918_values() -> None:
+    hosts = discovery_hosts(
+        ["255.255.255.0", "169.254.10.20", "172.16.5.20", "8.8.8.8"]
+    )
+    assert "172.16.5.1" in hosts
+    assert "172.16.5.20" not in hosts
+    assert not any(host.startswith("255.255.255.") for host in hosts)
+    assert not any(host.startswith("169.254.") for host in hosts)
+    assert len(hosts) == 253
+
+
 def test_remote_listing_sorts_folders_first_and_keeps_sizes() -> None:
     client, _ftp = _client()
     entries = client.list_dir("/games")
