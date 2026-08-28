@@ -56,6 +56,7 @@ from ps5_ffpfsc_renamer.ui.sortable_results_mixin import SortableResultsMixin
 from ps5_ffpfsc_renamer.ui.startup_preferences_mixin import StartupPreferencesMixin
 from ps5_ffpfsc_renamer.ui.status_summary_mixin import StatusSummaryMixin
 from ps5_ffpfsc_renamer.ui.undo_cache_mixin import UndoCacheMixin
+from ps5_ffpfsc_renamer.ui.workspace_layout_mixin import WorkspaceLayoutMixin
 from ps5_ffpfsc_renamer.ui.workspace_preferences_mixin import WorkspacePreferencesMixin
 
 
@@ -63,6 +64,7 @@ def test_desktop_is_fully_non_versioned_at_runtime() -> None:
     assert desktop.RenamerApp.__module__ == "ps5_ffpfsc_renamer.desktop"
     expected = (
         RenameSafetyMixin,
+        WorkspaceLayoutMixin,
         SelfTestMixin,
         UndoCacheMixin,
         PreservedViewGuardMixin,
@@ -127,6 +129,8 @@ def test_desktop_is_fully_non_versioned_at_runtime() -> None:
 
 def test_desktop_preserves_critical_hook_order() -> None:
     mro = desktop.RenamerApp.__mro__
+    assert mro.index(WorkspaceLayoutMixin) < mro.index(RuntimeExperienceMixin)
+    assert mro.index(WorkspaceLayoutMixin) < mro.index(ShellMiscMixin)
     assert mro.index(PreservedViewGuardMixin) < mro.index(DetailsPrefetchMixin)
     assert mro.index(PreservedViewGuardMixin) < mro.index(GameDetailsMixin)
     assert mro.index(PreservedViewGuardMixin) < mro.index(ReanalysisMixin)
@@ -155,6 +159,10 @@ def test_desktop_critical_methods_are_extracted() -> None:
     assert desktop.RenamerApp._scan_complete is ScanViewRestoreMixin._scan_complete
     assert desktop.RenamerApp._scan_worker is OptimizedScanMixin._scan_worker
     assert desktop.RenamerApp._build_table is SortableResultsMixin._build_table
+    assert desktop.RenamerApp._build_configuration is WorkspaceLayoutMixin._build_configuration
+    assert desktop.RenamerApp._build_footer is WorkspaceLayoutMixin._build_footer
+    assert desktop.RenamerApp._install_modern_command_bar is WorkspaceLayoutMixin._install_modern_command_bar
+    assert desktop.RenamerApp._install_creator_credit is WorkspaceLayoutMixin._install_creator_credit
     assert desktop.RenamerApp._record_model is LibraryWorkspaceMixin._record_model
     assert desktop.RenamerApp._show_context_menu is PreservedViewGuardMixin._show_context_menu
     assert desktop.RenamerApp._double_click is PreservedViewGuardMixin._double_click
