@@ -9,17 +9,25 @@ from ..theme import COLORS
 class WorkspaceLayoutMixin:
     """Compact top configuration, styled command bar and separated footer."""
 
+    WORKSPACE_AUTO_COLLAPSE_MS = 8000
+
     def __init__(self) -> None:
         self._workspace_pages: dict[str, ttk.Frame] = {}
         self._workspace_tab_widgets: dict[str, dict[str, tk.Widget]] = {}
         self._workspace_active_tab = "library"
+        self._workspace_shell: tk.Frame | None = None
+        self._workspace_pages_frame: ttk.Frame | None = None
+        self._workspace_hint_label: tk.Label | None = None
+        self._workspace_collapse_job: str | None = None
+        self._workspace_config_expanded = True
         self._footer_apply_button: ttk.Button | None = None
         super().__init__()
 
-        # The results table already expands with the window; request a taller
-        # starting size now that configuration no longer occupies two columns.
+        # Ask for a taller result list. The Treeview still expands naturally
+        # with the window, while the auto-collapsing configuration area returns
+        # additional vertical space after the user stops interacting with it.
         try:
-            self.tree.configure(height=18)
+            self.tree.configure(height=24)
         except (AttributeError, tk.TclError):
             pass
 
@@ -37,6 +45,7 @@ class WorkspaceLayoutMixin:
             highlightbackground=COLORS["border"],
         )
         shell.pack(fill="x")
+        self._workspace_shell = shell
 
         nav = tk.Frame(shell, bg=COLORS["panel"])
         nav.pack(fill="x", padx=12, pady=(9, 0))
@@ -51,6 +60,7 @@ class WorkspaceLayoutMixin:
 
         pages = ttk.Frame(shell, style="Card.TFrame", padding=(12, 9, 12, 11))
         pages.pack(fill="x")
+        self._workspace_pages_frame = pages
 
         library = ttk.Frame(pages, style="Card.TFrame")
         rename = ttk.Frame(pages, style="Card.TFrame")
@@ -106,19 +116,120 @@ class WorkspaceLayoutMixin:
                 "note": note_label,
             }
 
-        tk.Label(
+        self._workspace_hint_label = tk.Label(
             nav,
-            text="Only one setup panel is shown at a time so the library list keeps the available space.",
+            text="Settings auto-collapse after inactivity to give the library list more space.",
             bg=COLORS["panel"],
             fg=COLORS["muted_dark"],
             font=("Segoe UI", 8),
-        ).pack(side="right", padx=(10, 0))
+        )
+        self._workspace_hint_label.pack(side="right", padx=(10, 0))
 
         self._show_workspace_tab("library")
+        self._bind_workspace_activity(shell)
+        self._schedule_workspace_collapse()
+
+    def _build_progress(self, parent: ttk.Frame) -> None:
+        """Keep Scan available even while the configuration body is collapsed."""
+        super()._build_progress(parent)
+
+        old_scan = getattr(self, "scan_button", None)
+        cancel = getattr(self, "cancel_button", None)
+        if not isinstance(cancel, ttk.Button):
+            return
+        top = cancel.master
+        if not isinstance(top, ttk.Frame):
+            return
+
+        if isinstance(old_scan, ttk.Button):
+            try:
+                old_scan.destroy()
+            except tk.TclError:
+                pass
+
+        try:
+            cancel.pack_forget()
+        except tk.TclError:
+            return
+
+        self.scan_button = ttk.Button(
+            top,
+            text="Scan now  F5",
+            style="Primary.TButton",
+            command=self._scan,
+        )
+        self.scan_button.pack(side="right")
+        cancel.pack(side="right", padx=(0, 6))
+
+    def _bind_workspace_activity(self, widget: tk.Misc) -> None:
+        """Reset the inactivity timer for real interaction inside configuration."""
+        for sequence in ("<Button-1>", "<KeyPress>", "<MouseWheel>", "<FocusIn>"):
+            try:
+                widget.bind(sequence, self._workspace_interaction, add="+")
+            except tk.TclError:
+                pass
+        for child in widget.winfo_children():
+            self._bind_workspace_activity(child)
+
+    def _workspace_interaction(self, _event=None) -> None:
+        pages = self._workspace_pages_frame
+        if pages is None:
+            return
+        try:
+            if pages.winfo_manager():
+                self._schedule_workspace_collapse()
+        except tk.TclError:
+            pass
+
+    def _cancel_workspace_collapse(self) -> None:
+        job = self._workspace_collapse_job
+        self._workspace_collapse_job = None
+        if job is None:
+            return
+        try:
+            self.after_cancel(job)
+        except tk.TclError:
+            pass
+
+    def _schedule_workspace_collapse(self) -> None:
+        self._cancel_workspace_collapse()
+        try:
+            self._workspace_collapse_job = self.after(
+                self.WORKSPACE_AUTO_COLLAPSE_MS,
+                self._collapse_workspace_configuration,
+            )
+        except tk.TclError:
+            self._workspace_collapse_job = None
+
+    def _collapse_workspace_configuration(self) -> None:
+        self._workspace_collapse_job = None
+        pages = self._workspace_pages_frame
+        if pages is None:
+            return
+        try:
+            if pages.winfo_manager():
+                pages.pack_forget()
+            self._workspace_config_expanded = False
+            if self._workspace_hint_label is not None:
+                self._workspace_hint_label.configure(
+                    text="Configuration collapsed • click Library setup or Rename builder to reopen."
+                )
+        except tk.TclError:
+            pass
 
     def _show_workspace_tab(self, key: str) -> None:
         if key not in self._workspace_pages:
             return
+
+        pages = self._workspace_pages_frame
+        if pages is not None:
+            try:
+                if not pages.winfo_manager():
+                    pages.pack(fill="x")
+                self._workspace_config_expanded = True
+            except tk.TclError:
+                pass
+
         self._workspace_active_tab = key
         for page_key, page in self._workspace_pages.items():
             if page_key == key:
@@ -138,6 +249,15 @@ class WorkspaceLayoutMixin:
                 fg=COLORS["accent_hover"] if active else COLORS["text_soft"],
             )
             widgets["note"].configure(bg=background)
+
+        if self._workspace_hint_label is not None:
+            try:
+                self._workspace_hint_label.configure(
+                    text="Settings auto-collapse after inactivity to give the library list more space."
+                )
+            except tk.TclError:
+                pass
+        self._schedule_workspace_collapse()
 
     def _build_footer(self, parent: ttk.Frame) -> None:
         # Give the footer its own visual breathing room instead of making the

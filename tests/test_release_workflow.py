@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def test_stable_release_workflow_rejects_development_versions() -> None:
+def test_release_workflow_accepts_numeric_and_lettered_prereleases_only() -> None:
     workflow = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
-    assert "-notmatch '^\\d+\\.\\d+\\.\\d+$'" in workflow
-    assert "Refusing stable release for non-final version" in workflow
+    assert "-notmatch '^\\d+\\.\\d+\\.\\d+(?:[a-z]\\d*)?$'" in workflow
+    assert "Expected X.Y.Z or X.Y.Z<letter>[number]" in workflow
+    assert "$isPrerelease = $version -notmatch '^\\d+\\.\\d+\\.\\d+$'" in workflow
+    assert '--prerelease' in workflow
 
 
 def test_stable_release_workflow_bundles_branding_without_duplicate_root_assets() -> None:

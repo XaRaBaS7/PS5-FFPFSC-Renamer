@@ -30,6 +30,7 @@ from .ui.options_dialog_mixin import OptionsDialogMixin
 from .ui.partial_metadata_mixin import PartialMetadataMixin
 from .ui.preserved_view_guard_mixin import PreservedViewGuardMixin
 from .ui.product_menu_mixin import ProductMenuMixin
+from .ui.ps5_ftp_workspace import install_ps5_ftp_workspace
 from .ui.reanalysis_mixin import ReanalysisMixin
 from .ui.recycle_bin_mixin import RecycleBinMixin
 from .ui.reliability_state_mixin import ReliabilityStateMixin
@@ -103,14 +104,16 @@ class RenamerApp(
 ):
     """Canonical desktop application entry point."""
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.after_idle(lambda: install_ps5_ftp_workspace(self))
+
 
 def main() -> None:
     app = RenamerApp()
     try:
         app.mainloop()
     finally:
-        # No MkPFS helper may outlive the desktop process. This also covers
-        # cancellation/close races while a bounded metadata read is active.
         terminate_registered_processes()
 
 
