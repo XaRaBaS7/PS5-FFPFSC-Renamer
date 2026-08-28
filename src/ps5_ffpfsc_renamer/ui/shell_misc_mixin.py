@@ -37,6 +37,7 @@ class ShellMiscMixin:
     def _build_ui(self) -> None:
         super()._build_ui()
         self._install_sidebar_brand()
+        self._install_sidebar_creator_credit()
 
     def _apply_window_branding(self) -> None:
         photo = load_brand_photo(self, BRAND_ICON_NAME)
@@ -76,12 +77,10 @@ class ShellMiscMixin:
         # widget remains available when its replacement cannot be installed.
         steps = (
             ("sidebar options", self._install_sidebar_options_button),
-            ("sidebar creator credit", self._install_sidebar_creator_credit),
             ("central options cleanup", self._remove_legacy_central_options_button),
             ("rename action", self._install_rename_plan_button),
             ("command bar", self._install_modern_command_bar),
             ("rename action refresh", self._refresh_rename_plan_button),
-            ("undo action refresh", self._refresh_undo_button),
         )
         for label, action in steps:
             try:
@@ -149,7 +148,9 @@ class ShellMiscMixin:
 
     def _install_sidebar_creator_credit(self) -> None:
         """Move the sole creator credit into the sidebar legal block, right aligned."""
-        if self._sidebar_creator_credit is not None:
+        if getattr(self, "_sidebar_creator_credit", None) is not None:
+            return
+        if not hasattr(self, "winfo_children"):
             return
 
         legal: tk.Frame | None = None
@@ -266,7 +267,7 @@ class ShellMiscMixin:
 
     def _refresh_undo_button(self) -> None:
         """Show Undo only while the latest persisted rename can still be restored."""
-        button = self._undo_button
+        button = getattr(self, "_undo_button", None)
         if button is None:
             return
         try:
@@ -292,7 +293,7 @@ class ShellMiscMixin:
                 "side": "right",
                 "padx": (8, 0),
             }
-            result_label = self._results_count_label
+            result_label = getattr(self, "_results_count_label", None)
             try:
                 if result_label is not None and result_label.winfo_manager():
                     options["before"] = result_label
