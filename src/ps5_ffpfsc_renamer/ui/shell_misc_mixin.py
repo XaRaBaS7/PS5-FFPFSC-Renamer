@@ -23,6 +23,9 @@ class ShellMiscMixin:
         self._modern_command_bar: tk.Frame | None = None
         self._sidebar_options_button: ttk.Button | None = None
         self._rename_plan_button: ttk.Button | None = None
+        self._undo_button: ttk.Button | None = None
+        self._results_count_label: ttk.Label | None = None
+        self._sidebar_creator_credit: tk.Label | None = None
         super().__init__()
         self._apply_window_branding()
         try:
@@ -34,6 +37,7 @@ class ShellMiscMixin:
     def _build_ui(self) -> None:
         super()._build_ui()
         self._install_sidebar_brand()
+        self._install_sidebar_creator_credit()
 
     def _apply_window_branding(self) -> None:
         photo = load_brand_photo(self, BRAND_ICON_NAME)
@@ -142,6 +146,60 @@ class ShellMiscMixin:
             self._sidebar_options_button = button
             return
 
+    def _install_sidebar_creator_credit(self) -> None:
+        """Move the sole creator credit into the sidebar legal block, right aligned."""
+        if getattr(self, "_sidebar_creator_credit", None) is not None:
+            return
+        if not hasattr(self, "winfo_children"):
+            return
+
+        legal: tk.Frame | None = None
+        for candidate in self._walk_widgets(self):
+            if not isinstance(candidate, tk.Frame):
+                continue
+            texts = {self._widget_text(child) for child in candidate.winfo_children()}
+            if {
+                "Homebrew & personal backup tool",
+                "Not affiliated with Sony Interactive Entertainment",
+            }.issubset(texts):
+                legal = candidate
+                break
+        if legal is None:
+            return
+
+        credit = tk.Label(
+            legal,
+            text="Created by XaRaBaS",
+            bg=COLORS["sidebar"],
+            fg=COLORS["text_soft"],
+            activebackground=COLORS["sidebar"],
+            activeforeground=COLORS["accent_hover"],
+            font=("Segoe UI", 8),
+            cursor="hand2",
+            anchor="e",
+            justify="right",
+            bd=0,
+            highlightthickness=0,
+        )
+        credit.pack(fill="x", pady=(10, 0))
+        credit.bind("<Button-1>", self._open_repository)
+        credit.bind("<Enter>", lambda _event: credit.configure(fg=COLORS["accent_hover"]))
+        credit.bind("<Leave>", lambda _event: credit.configure(fg=COLORS["text_soft"]))
+        self._sidebar_creator_credit = credit
+
+        # WorkspaceLayoutMixin used to render a second PROJECT BY box in the
+        # main footer. Remove it only after the sidebar credit exists so there
+        # is always exactly one visible creator credit.
+        for candidate in tuple(self._walk_widgets(self)):
+            if not isinstance(candidate, tk.Frame):
+                continue
+            texts = {self._widget_text(child) for child in candidate.winfo_children()}
+            if "PROJECT BY" in texts and "XaRaBaS  ↗" in texts:
+                try:
+                    candidate.destroy()
+                except tk.TclError:
+                    pass
+
     def _remove_legacy_central_options_button(self) -> None:
         for candidate in tuple(self._walk_widgets(self)):
             if not isinstance(candidate, ttk.Button):
@@ -194,12 +252,70 @@ class ShellMiscMixin:
         button.pack(side="right", padx=(12, 0))
         self._rename_plan_button = button
 
+        undo = ttk.Button(
+            toolbar,
+            text="↶ Undo",
+            style="Secondary.TButton",
+            command=self._undo_last_rename,
+        )
+        self._undo_button = undo
+        self._results_count_label = result_label
+
         if result_label is not None:
             result_label.pack(side="right", padx=(0, 10))
+        self._refresh_undo_button()
+
+    def _refresh_undo_button(self) -> None:
+        """Show Undo only while the latest persisted rename can still be restored."""
+        button = getattr(self, "_undo_button", None)
+        if button is None:
+            return
+        try:
+            transaction = self.history.last_undoable()
+        except Exception:
+            transaction = None
+
+        try:
+            manager = button.winfo_manager()
+        except tk.TclError:
+            return
+
+        if transaction is None:
+            if manager:
+                try:
+                    button.pack_forget()
+                except tk.TclError:
+                    pass
+            return
+
+        if not manager:
+            options: dict[str, object] = {
+                "side": "right",
+                "padx": (8, 0),
+            }
+            result_label = getattr(self, "_results_count_label", None)
+            try:
+                if result_label is not None and result_label.winfo_manager():
+                    options["before"] = result_label
+            except tk.TclError:
+                pass
+            try:
+                button.pack(**options)
+            except tk.TclError:
+                return
+
+        try:
+            if bool(getattr(self, "_scan_active", False)):
+                button.state(["disabled"])
+            else:
+                button.state(["!disabled"])
+        except tk.TclError:
+            pass
 
     def _refresh_rename_plan_button(self) -> None:
         button = self._rename_plan_button
         if button is None:
+            self._refresh_undo_button()
             return
         try:
             ready_count = sum(1 for item in self.plan if item.status is PlanStatus.READY)
@@ -214,6 +330,7 @@ class ShellMiscMixin:
                 button.state(["!disabled"])
         except tk.TclError:
             pass
+        self._refresh_undo_button()
 
     def _style_popup_menu(self, menu: tk.Menu) -> None:
         try:

@@ -21,12 +21,14 @@ class RuntimeExperienceMixin:
         self._scan_clock_cache_hits = 0
         self._scan_clock_workers = 1
         self._creator_credit_label: tk.Label | None = None
+        self._dialog_polish_bound = False
         super().__init__()
 
     def _build_ui(self) -> None:
         super()._build_ui()
         self._polish_apply_changes_style()
         self._install_creator_credit()
+        self._install_dialog_polish()
 
     def _polish_apply_changes_style(self) -> None:
         """Keep the final action visibly green, including its disabled cue."""
@@ -84,10 +86,58 @@ class RuntimeExperienceMixin:
         label.lift()
         self._creator_credit_label = label
 
+    def _install_dialog_polish(self) -> None:
+        """Apply small Windows-specific polish when the rename success dialog is mapped."""
+        if self._dialog_polish_bound:
+            return
+        try:
+            self.bind_all("<Map>", self._polish_mapped_dialog, add="+")
+            self._dialog_polish_bound = True
+        except tk.TclError:
+            pass
+
+    def _polish_mapped_dialog(self, event) -> None:
+        try:
+            window = event.widget.winfo_toplevel()
+            if window is self or window.title() != "Changes applied":
+                return
+            if bool(getattr(window, "_ffpfsc_success_polished", False)):
+                return
+            setattr(window, "_ffpfsc_success_polished", True)
+            self.after_idle(lambda current=window: self._polish_success_dialog(current))
+        except (AttributeError, tk.TclError):
+            return
+
+    def _polish_success_dialog(self, window: tk.Toplevel) -> None:
+        """Give the Close CTA enough vertical room and advertise the visible Undo action."""
+        try:
+            if not window.winfo_exists():
+                return
+            self._center_modal(window, 520, 330)
+        except (AttributeError, tk.TclError):
+            return
+
+        def walk(widget: tk.Misc):
+            for child in widget.winfo_children():
+                yield child
+                yield from walk(child)
+
+        try:
+            for candidate in walk(window):
+                if not isinstance(candidate, tk.Label):
+                    continue
+                if str(candidate.cget("text")) == "Ctrl+Z can undo this transaction from Operation History.":
+                    candidate.configure(text="Use Undo or Ctrl+Z to restore the previous paths.")
+        except tk.TclError:
+            pass
+
     def _refresh_rename_plan_button(self) -> None:
         """Use a concise final-action label while preserving the safe rename path."""
         button = getattr(self, "_rename_plan_button", None)
         if button is None:
+            refresh_undo = getattr(self, "_refresh_undo_button", None)
+            if callable(refresh_undo):
+                refresh_undo()
             return
         try:
             ready_count = sum(1 for item in self.plan if item.status is PlanStatus.READY)
@@ -110,6 +160,10 @@ class RuntimeExperienceMixin:
                 button.state(["!disabled"])
         except tk.TclError:
             pass
+
+        refresh_undo = getattr(self, "_refresh_undo_button", None)
+        if callable(refresh_undo):
+            refresh_undo()
 
     @staticmethod
     def _clock_duration(seconds: float) -> str:

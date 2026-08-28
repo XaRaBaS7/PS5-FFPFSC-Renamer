@@ -30,6 +30,13 @@
     <text x="34" y="664" fill="#c08ce8" font-size="10">Duplicate Manager</text>
     <text x="34" y="684" fill="#c08ce8" font-size="10">Problem actions</text>
 
+    <!-- Persistent legal/creator footer -->
+    <line x1="18" y1="890" x2="202" y2="890" stroke="#342a48"/>
+    <text x="24" y="915" fill="#9f97ad" font-size="9">Homebrew &amp; personal backup tool</text>
+    <text x="24" y="936" fill="#746c82" font-size="8">Not affiliated with Sony Interactive</text>
+    <text x="24" y="949" fill="#746c82" font-size="8">Entertainment</text>
+    <text x="196" y="976" fill="#d7d1e1" font-size="9" text-anchor="end">Created by XaRaBaS</text>
+
     <!-- Styled command bar: restored original visual treatment -->
     <rect x="242" y="18" width="52" height="30" rx="5" fill="#15111f" stroke="#342a48"/>
     <text x="258" y="38" fill="#d7d1e1" font-size="11" font-weight="600">File</text>
@@ -109,6 +116,8 @@
     <rect x="626" y="560" width="108" height="28" fill="#251e34" stroke="#a875d6"/>
     <text x="642" y="579" fill="#d7d1e1" font-size="10">ALL</text>
     <text x="752" y="580" fill="#746c82" font-size="9">144 results</text>
+    <rect x="1028" y="558" width="92" height="32" rx="4" fill="#251e34" stroke="#342a48"/>
+    <text x="1047" y="579" fill="#d7d1e1" font-size="10" font-weight="700">↶ Undo</text>
     <rect x="1130" y="558" width="208" height="32" rx="4" fill="#57c7a5"/>
     <text x="1164" y="579" fill="#081711" font-size="11" font-weight="700">Apply changes (134)</text>
 
@@ -128,9 +137,6 @@
 
     <!-- Footer -->
     <line x1="242" y1="934" x2="1358" y2="934" stroke="#342a48"/>
-    <text x="258" y="963" fill="#9f97ad" font-size="9">Ready • 144 files • 134 READY • root online</text>
-    <rect x="1172" y="944" width="166" height="30" rx="5" fill="#15111f" stroke="#342a48"/>
-    <text x="1184" y="963" fill="#746c82" font-size="8" font-weight="700">PROJECT BY</text>
-    <text x="1256" y="963" fill="#c08ce8" font-size="9" font-weight="700">XaRaBaS  ↗</text>
+    <text x="258" y="963" fill="#9f97ad" font-size="9">Ready • 144 files • 134 READY • root online • Undo available for latest rename</text>
   </g>
 </svg>

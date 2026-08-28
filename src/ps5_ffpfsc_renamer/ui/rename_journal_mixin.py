@@ -76,12 +76,16 @@ class RenameJournalMixin:
         self._rebuild_output_plan(option_change=True)
         if self._last_rename_undo_available:
             self.status_var.set(
-                f"{label}: {len(completed)} file(s) completed — Ctrl+Z can undo the latest transaction"
+                f"{label}: {len(completed)} file(s) completed — Ctrl+Z can undo the latest transaction; Undo is also available"
             )
         else:
             self.status_var.set(
                 f"{label}: {len(completed)} file(s) completed — Undo journal unavailable"
             )
+
+        refresh_undo = getattr(self, "_refresh_undo_button", None)
+        if callable(refresh_undo):
+            refresh_undo()
 
     def _execute_plan_transaction(
         self,
@@ -124,7 +128,7 @@ class RenameJournalMixin:
             return
         if completed:
             undo_text = (
-                "Press Ctrl+Z if you want to undo this transaction."
+                "Use Undo or Ctrl+Z if you want to restore the previous paths."
                 if getattr(self, "_last_rename_undo_available", False)
                 else "Undo journal unavailable for this transaction."
             )
