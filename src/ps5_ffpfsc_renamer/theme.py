@@ -35,6 +35,15 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
     style = ttk.Style(root)
     style.theme_use("clam")
 
+    # The ttk Combobox drop-down is a classic Tk Listbox on Windows and does
+    # not inherit ttk field colors. Theme that pop-down explicitly so every
+    # selector in Feedback, Options and the main workspace stays dark/readable.
+    root.option_add("*TCombobox*Listbox.background", COLORS["panel_alt"])
+    root.option_add("*TCombobox*Listbox.foreground", COLORS["text"])
+    root.option_add("*TCombobox*Listbox.selectBackground", COLORS["accent"])
+    root.option_add("*TCombobox*Listbox.selectForeground", "#ffffff")
+    root.option_add("*TCombobox*Listbox.font", ("Segoe UI", 10))
+
     style.configure(
         ".",
         background=COLORS["bg"],
@@ -227,6 +236,80 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
 
     style.configure("TCheckbutton", background=COLORS["panel"], foreground=COLORS["text_soft"])
     style.map("TCheckbutton", background=[("active", COLORS["panel"])])
+
+    # Explicit form-control styles avoid native light fields leaking through
+    # on readonly/active/focus states. Keep them global so new dialogs do not
+    # have to remember a special style just to remain readable.
+    style.configure(
+        "TEntry",
+        fieldbackground=COLORS["panel_alt"],
+        foreground=COLORS["text"],
+        bordercolor=COLORS["border"],
+        lightcolor=COLORS["border"],
+        darkcolor=COLORS["border"],
+        padding=(7, 6),
+    )
+    style.map(
+        "TEntry",
+        fieldbackground=[("disabled", COLORS["surface"]), ("focus", COLORS["panel_alt"])],
+        foreground=[("disabled", COLORS["muted_dark"])],
+        bordercolor=[("focus", COLORS["accent"]), ("active", COLORS["border"])],
+    )
+    style.configure(
+        "TCombobox",
+        fieldbackground=COLORS["panel_alt"],
+        background=COLORS["panel_alt"],
+        foreground=COLORS["text"],
+        arrowcolor=COLORS["muted"],
+        bordercolor=COLORS["border"],
+        lightcolor=COLORS["border"],
+        darkcolor=COLORS["border"],
+        padding=(7, 6),
+    )
+    style.map(
+        "TCombobox",
+        fieldbackground=[
+            ("disabled", COLORS["surface"]),
+            ("readonly", COLORS["panel_alt"]),
+            ("focus", COLORS["panel_alt"]),
+        ],
+        background=[
+            ("disabled", COLORS["surface"]),
+            ("readonly", COLORS["panel_alt"]),
+            ("active", COLORS["panel_hover"]),
+        ],
+        foreground=[
+            ("disabled", COLORS["muted_dark"]),
+            ("readonly", COLORS["text"]),
+        ],
+        selectbackground=[("readonly", COLORS["panel_alt"])],
+        selectforeground=[("readonly", COLORS["text"])],
+        arrowcolor=[
+            ("disabled", COLORS["muted_dark"]),
+            ("active", COLORS["accent_hover"]),
+            ("readonly", COLORS["muted"]),
+        ],
+        bordercolor=[("focus", COLORS["accent"]), ("active", COLORS["accent"])],
+    )
+    style.configure(
+        "TSpinbox",
+        fieldbackground=COLORS["panel_alt"],
+        background=COLORS["panel_alt"],
+        foreground=COLORS["text"],
+        arrowcolor=COLORS["muted"],
+        bordercolor=COLORS["border"],
+        lightcolor=COLORS["border"],
+        darkcolor=COLORS["border"],
+        padding=(7, 6),
+    )
+    style.map(
+        "TSpinbox",
+        fieldbackground=[("disabled", COLORS["surface"]), ("focus", COLORS["panel_alt"])],
+        foreground=[("disabled", COLORS["muted_dark"])],
+        arrowcolor=[("active", COLORS["accent_hover"]), ("disabled", COLORS["muted_dark"])],
+        bordercolor=[("focus", COLORS["accent"]), ("active", COLORS["accent"])],
+    )
+
     style.configure(
         "Performance.TCombobox",
         fieldbackground=COLORS["panel_alt"],
@@ -240,10 +323,16 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
     )
     style.map(
         "Performance.TCombobox",
-        fieldbackground=[("readonly", COLORS["panel_alt"])],
+        fieldbackground=[
+            ("readonly", COLORS["panel_alt"]),
+            ("focus", COLORS["panel_alt"]),
+        ],
+        background=[("readonly", COLORS["panel_alt"]), ("active", COLORS["panel_hover"])],
         foreground=[("readonly", COLORS["text"])],
         selectbackground=[("readonly", COLORS["panel_alt"])],
         selectforeground=[("readonly", COLORS["text"])],
+        arrowcolor=[("active", COLORS["accent_hover"]), ("readonly", COLORS["muted"])],
+        bordercolor=[("focus", COLORS["accent"]), ("active", COLORS["accent"])],
     )
     style.configure(
         "Scan.Horizontal.TProgressbar",
