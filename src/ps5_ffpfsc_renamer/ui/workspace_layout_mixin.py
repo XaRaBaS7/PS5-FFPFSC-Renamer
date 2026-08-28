@@ -7,7 +7,7 @@ from ..theme import COLORS
 
 
 class WorkspaceLayoutMixin:
-    """Compact top configuration, reliable native menu and separated footer."""
+    """Compact top configuration, styled command bar and separated footer."""
 
     def __init__(self) -> None:
         self._workspace_pages: dict[str, ttk.Frame] = {}
@@ -23,9 +23,9 @@ class WorkspaceLayoutMixin:
         except (AttributeError, tk.TclError):
             pass
 
-        # The product menu used to be repurposed by an in-app Menubutton row.
-        # Build/attach the real Tk menu once, then leave it attached so its
-        # commands remain valid on Windows.
+        # ProductMenuMixin owns the canonical callbacks. The styled command bar
+        # clones those menus into button-owned popup menus so Windows receives
+        # valid menu ownership while the original visual treatment is retained.
         if not isinstance(getattr(self, "_product_menu", None), tk.Menu):
             self._build_product_menu()
 
@@ -208,16 +208,153 @@ class WorkspaceLayoutMixin:
             except tk.TclError:
                 pass
 
+    @staticmethod
+    def _menu_entry_option(menu: tk.Menu, index: int, option: str) -> str:
+        try:
+            return str(menu.entrycget(index, option))
+        except tk.TclError:
+            return ""
+
+    def _clone_command_menu(self, source: tk.Menu, parent: tk.Misc) -> tk.Menu:
+        """Clone a product menu into a popup owned by the visible Menubutton.
+
+        The old styled command row reused popup menus whose Tk parent was the
+        hidden top-level menubar. That ownership mismatch can leave a visible
+        Menubutton that does not post anything on Windows after the native menu
+        is detached. Each visible button now owns its popup while command
+        execution delegates back to the canonical ProductMenuMixin menu entry.
+        """
+        clone = tk.Menu(parent, tearoff=False)
+        try:
+            end = source.index("end")
+        except tk.TclError:
+            end = None
+        if end is None:
+            self._style_popup_menu(clone)
+            return clone
+
+        for index in range(int(end) + 1):
+            try:
+                kind = source.type(index)
+            except tk.TclError:
+                continue
+
+            if kind == "separator":
+                clone.add_separator()
+                continue
+
+            label = self._menu_entry_option(source, index, "label")
+            state = self._menu_entry_option(source, index, "state") or "normal"
+
+            if kind == "cascade":
+                child_name = self._menu_entry_option(source, index, "menu")
+                try:
+                    child = self.nametowidget(child_name)
+                except (tk.TclError, KeyError):
+                    child = None
+                if isinstance(child, tk.Menu):
+                    child_clone = self._clone_command_menu(child, clone)
+                    clone.add_cascade(label=label, menu=child_clone, state=state)
+                continue
+
+            if kind != "command":
+                continue
+
+            options: dict[str, object] = {
+                "label": label,
+                "state": state,
+                "command": lambda menu=source, item=index: menu.invoke(item),
+            }
+            accelerator = self._menu_entry_option(source, index, "accelerator")
+            if accelerator:
+                options["accelerator"] = accelerator
+            image = self._menu_entry_option(source, index, "image")
+            if image:
+                options["image"] = image
+                compound = self._menu_entry_option(source, index, "compound")
+                if compound:
+                    options["compound"] = compound
+            clone.add_command(**options)
+
+        self._style_popup_menu(clone)
+        return clone
+
     def _install_modern_command_bar(self) -> None:
-        """Keep the native Windows/Tk menubar attached and functional."""
+        """Restore the styled File/Edit/Tools/Help row with reliable popups."""
+        if self._modern_command_bar is not None:
+            return
         menubar = getattr(self, "_product_menu", None)
         if not isinstance(menubar, tk.Menu):
             return
-        try:
-            self.configure(menu=menubar)
-        except tk.TclError:
+        header = self._find_main_header()
+        if header is None:
             return
-        self._modern_command_bar = None
+        content = header.master
+
+        bar = tk.Frame(content, bg=COLORS["bg"], bd=0, highlightthickness=0)
+        try:
+            try:
+                bar.pack(fill="x", pady=(0, 7), before=header)
+            except tk.TclError:
+                bar.pack(fill="x", pady=(0, 7))
+
+            try:
+                end = menubar.index("end")
+            except tk.TclError:
+                end = None
+            if end is None:
+                bar.destroy()
+                return
+
+            for index in range(int(end) + 1):
+                try:
+                    if menubar.type(index) != "cascade":
+                        continue
+                    label = str(menubar.entrycget(index, "label"))
+                    menu_name = menubar.entrycget(index, "menu")
+                    submenu = self.nametowidget(menu_name)
+                except (tk.TclError, KeyError):
+                    continue
+                if not isinstance(submenu, tk.Menu):
+                    continue
+
+                button = tk.Menubutton(
+                    bar,
+                    text=label,
+                    indicatoron=False,
+                    bg=COLORS["bg"],
+                    fg=COLORS["text_soft"],
+                    activebackground=COLORS["panel_hover"],
+                    activeforeground=COLORS["text"],
+                    relief="flat",
+                    bd=0,
+                    highlightthickness=0,
+                    padx=9,
+                    pady=5,
+                    font=("Segoe UI", 9),
+                    cursor="hand2",
+                )
+                popup = self._clone_command_menu(submenu, button)
+                button.configure(menu=popup)
+                button.pack(side="left", padx=(0, 2))
+
+            # Keep the native menu as a safe fallback until every styled button
+            # has a valid child-owned popup, then hide only its presentation.
+            if not bar.winfo_children():
+                bar.destroy()
+                return
+            self.configure(menu="")
+            self._modern_command_bar = bar
+        except Exception:
+            try:
+                bar.destroy()
+            except tk.TclError:
+                pass
+            try:
+                self.configure(menu=menubar)
+            except tk.TclError:
+                pass
+            raise
 
     def _install_creator_credit(self) -> None:
         """The footer owns the only creator credit; do not overlay the table."""
