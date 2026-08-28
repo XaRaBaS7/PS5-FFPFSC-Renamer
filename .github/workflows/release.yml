@@ -73,9 +73,10 @@ jobs:
         shell: pwsh
         run: |
           $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            throw "Refusing stable release for non-final version '$version'. Expected X.Y.Z."
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:[a-z]\d*)?$') {
+            throw "Refusing release for unsupported version '$version'. Expected X.Y.Z or X.Y.Z<letter>[number]."
           }
+          $isPrerelease = $version -notmatch '^\d+\.\d+\.\d+$'
 
           $app = ".\dist\PS5-FFPFSC-Renamer"
           Copy-Item ".\dist\mkpfs-helper.exe" "$app\mkpfs-helper.exe"
@@ -103,6 +104,7 @@ jobs:
           Compress-Archive -Path $package -DestinationPath $archive -Force
           "version=$version" >> $env:GITHUB_OUTPUT
           "archive=$archive" >> $env:GITHUB_OUTPUT
+          "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Create tag and GitHub release
         shell: pwsh
@@ -110,6 +112,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.package.outputs.version }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
+          PRERELEASE: ${{ steps.package.outputs.prerelease }}
         run: |
           $tag = "v$env:VERSION"
           $exists = git ls-remote --tags origin "refs/tags/$tag"
@@ -138,7 +141,11 @@ jobs:
             if ($tag -eq "v0.5.0") {
               throw "Historical v0.5.0 release is missing. Refusing to create a replacement release."
             }
-            gh release create $tag $env:ARCHIVE --title "PS5 FFPFSC Renamer $tag" --notes-file RELEASE_NOTES.md
+            if ($env:PRERELEASE -eq "true") {
+              gh release create $tag $env:ARCHIVE --title "PS5 FFPFSC Renamer $tag" --notes-file RELEASE_NOTES.md --prerelease
+            } else {
+              gh release create $tag $env:ARCHIVE --title "PS5 FFPFSC Renamer $tag" --notes-file RELEASE_NOTES.md
+            }
           } else {
             gh release upload $tag $env:ARCHIVE --clobber
           }
