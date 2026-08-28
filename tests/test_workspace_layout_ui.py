@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import inspect
+import tkinter as tk
+
+import pytest
 
 from ps5_ffpfsc_renamer import desktop
 from ps5_ffpfsc_renamer.ui.workspace_layout_mixin import WorkspaceLayoutMixin
@@ -27,11 +30,73 @@ def test_results_table_is_requested_taller_without_replacing_table_logic() -> No
     assert desktop.RenamerApp._build_table.__qualname__.startswith("SortableResultsMixin.")
 
 
-def test_effective_desktop_keeps_native_product_menu_attached() -> None:
+def test_effective_desktop_restores_styled_product_command_bar() -> None:
     source = inspect.getsource(WorkspaceLayoutMixin._install_modern_command_bar)
-    assert "self.configure(menu=menubar)" in source
-    assert 'self.configure(menu="")' not in source
+    assert "tk.Menubutton(" in source
+    assert "popup = self._clone_command_menu(submenu, button)" in source
+    assert "button.configure(menu=popup)" in source
+    assert 'self.configure(menu="")' in source
     assert desktop.RenamerApp._install_modern_command_bar is WorkspaceLayoutMixin._install_modern_command_bar
+
+
+def test_styled_command_bar_uses_button_owned_menu_clones() -> None:
+    source = inspect.getsource(WorkspaceLayoutMixin._clone_command_menu)
+    assert "clone = tk.Menu(parent, tearoff=False)" in source
+    assert "menu.invoke(item)" in source
+    assert "child_clone = self._clone_command_menu(child, clone)" in source
+    assert "clone.add_cascade" in source
+    assert "clone.add_command" in source
+
+
+def test_button_owned_menu_clone_invokes_canonical_callbacks() -> None:
+    try:
+        root = tk.Tk()
+    except tk.TclError as exc:
+        pytest.skip(f"Tk unavailable: {exc}")
+    root.withdraw()
+
+    class Harness:
+        _menu_entry_option = staticmethod(WorkspaceLayoutMixin._menu_entry_option)
+        _clone_command_menu = WorkspaceLayoutMixin._clone_command_menu
+
+        def nametowidget(self, name: str):
+            return root.nametowidget(name)
+
+        @staticmethod
+        def _style_popup_menu(_menu: tk.Menu) -> None:
+            return
+
+    calls: list[str] = []
+    menubar = tk.Menu(root, tearoff=False)
+    source = tk.Menu(menubar, tearoff=False)
+    source.add_command(label="Scan library", command=lambda: calls.append("scan"))
+    export = tk.Menu(source, tearoff=False)
+    export.add_command(label="CSV", command=lambda: calls.append("csv"))
+    source.add_cascade(label="Export", menu=export)
+    menubar.add_cascade(label="File", menu=source)
+
+    button = tk.Menubutton(root, text="File", indicatoron=False)
+    harness = Harness()
+    popup = harness._clone_command_menu(source, button)
+    button.configure(menu=popup)
+
+    try:
+        assert popup.master is button
+        assert str(button.cget("menu")) == str(popup)
+        popup.invoke(0)
+        nested = root.nametowidget(popup.entrycget(1, "menu"))
+        assert isinstance(nested, tk.Menu)
+        nested.invoke(0)
+        assert calls == ["scan", "csv"]
+    finally:
+        root.destroy()
+
+
+def test_native_menu_remains_fallback_until_styled_buttons_exist() -> None:
+    source = inspect.getsource(WorkspaceLayoutMixin._install_modern_command_bar)
+    assert "if not bar.winfo_children()" in source
+    assert 'self.configure(menu="")' in source
+    assert "self.configure(menu=menubar)" in source
 
 
 def test_creator_credit_is_footer_only_and_not_overlayed_on_results() -> None:
