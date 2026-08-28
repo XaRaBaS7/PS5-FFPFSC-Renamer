@@ -6,9 +6,11 @@ import pytest
 
 from ps5_ffpfsc_renamer.ps5_ftp import (
     PS5FtpClient,
+    ShadowMountMountedError,
     ShadowMountReferenceError,
     discovery_hosts,
     normalize_remote_path,
+    shadowmount_pfsc_mount_point,
     validate_remote_ffpfsc_rename,
 )
 
@@ -18,7 +20,9 @@ class FakeFTP:
         self.files = {
             "/games/PPSA00001.ffpfsc": b"game",
             "/data/shadowmount/config.ini": b"",
+            "/data/shadowmount/autotune.ini": b"",
             "/data/shadowmount/manual.lst": b"",
+            "/data/shadowmount/manual.status": b"",
         }
         self.dirs = {"/", "/games", "/data", "/data/shadowmount"}
         self.renames: list[tuple[str, str]] = []
@@ -67,6 +71,23 @@ class FakeFTP:
         raise ftplib.error_perm("550 unsupported")
 
 
+class ListOnlyFTP(FakeFTP):
+    """Model the standalone PS5 ftpsrv variant that exposes LIST but not MLSD/NLST."""
+
+    def mlsd(self, path: str):
+        raise ftplib.error_perm("502 MLSD unsupported")
+
+    def retrlines(self, command: str, callback):
+        assert command == "LIST /games"
+        for line in (
+            "drwxr-xr-x 2 0 0 0 Aug 28 10:00 Folder",
+            "-rw-r--r-- 1 0 0 2 Aug 28 10:00 notes.txt",
+            "-rw-r--r-- 1 0 0 4 Aug 28 10:00 PPSA00001.ffpfsc",
+        ):
+            callback(line)
+        return "226 Transfer complete"
+
+
 def _client(fake: FakeFTP | None = None) -> tuple[PS5FtpClient, FakeFTP]:
     ftp = fake or FakeFTP()
     client = PS5FtpClient(ftp)
@@ -111,6 +132,20 @@ def test_remote_listing_sorts_folders_first_and_keeps_sizes() -> None:
     assert entries[-1].size == 4
 
 
+def test_remote_listing_falls_back_to_list_for_standalone_ftpsrv() -> None:
+    client, _ftp = _client(ListOnlyFTP())
+    entries = client.list_dir("/games")
+    assert [item.name for item in entries] == ["Folder", "notes.txt", "PPSA00001.ffpfsc"]
+    assert entries[0].is_dir is True
+    assert entries[-1].size == 4
+
+
+def test_shadowmount_pfsc_mount_point_matches_current_algorithm() -> None:
+    assert shadowmount_pfsc_mount_point("/games/PPSA00001.ffpfsc") == (
+        "/mnt/shadowmnt/pfsc/PPSA00001_74598469"
+    )
+
+
 def test_remote_rename_preflights_collision_and_verifies_destination() -> None:
     client, ftp = _client()
     destination = client.rename_ffpfsc(
@@ -138,4 +173,33 @@ def test_shadowmount_exact_path_reference_blocks_remote_rename() -> None:
         )
 
     assert captured.value.references == ("/data/shadowmount/manual.lst",)
+    assert ftp.renames == []
+
+
+def test_shadowmount_filename_override_in_autotune_blocks_remote_rename() -> None:
+    client, ftp = _client()
+    ftp.files["/data/shadowmount/autotune.ini"] = b"image_sector=PPSA00001.ffpfsc:32768\n"
+
+    with pytest.raises(ShadowMountReferenceError) as captured:
+        client.rename_ffpfsc(
+            "/games/PPSA00001.ffpfsc",
+            "PPSA00001 - Game.ffpfsc",
+        )
+
+    assert captured.value.references == ("/data/shadowmount/autotune.ini",)
+    assert ftp.renames == []
+
+
+def test_currently_mounted_shadowmount_pfsc_is_never_renamed() -> None:
+    client, ftp = _client()
+    mount_point = shadowmount_pfsc_mount_point("/games/PPSA00001.ffpfsc")
+    ftp.dirs.add(mount_point)
+
+    with pytest.raises(ShadowMountMountedError) as captured:
+        client.rename_ffpfsc(
+            "/games/PPSA00001.ffpfsc",
+            "PPSA00001 - Game.ffpfsc",
+        )
+
+    assert captured.value.mount_point == mount_point
     assert ftp.renames == []
