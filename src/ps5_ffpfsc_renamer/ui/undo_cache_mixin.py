@@ -53,6 +53,11 @@ class UndoCacheMixin:
             f"Undo restored {len(result.restored_pairs)} file(s)"
             + (f" • details cache migrated {migrated_details}" if migrated_details else ""),
         )
+
+        refresh_undo = getattr(self, "_refresh_undo_button", None)
+        if callable(refresh_undo):
+            refresh_undo()
+
         if result.retained_directories:
             messagebox.showwarning(
                 "Undo completed with retained folders",
