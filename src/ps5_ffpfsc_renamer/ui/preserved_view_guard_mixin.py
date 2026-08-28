@@ -44,9 +44,18 @@ class PreservedViewGuardMixin:
     def _show_preserved_view_notice(self, title: str) -> None:
         messagebox.showinfo(title, self._preserved_view_message(), parent=self)
 
-    def _activate_details_record(self, record: LibraryRecord, *, force: bool = False) -> None:
+    def _activate_details_record(
+        self,
+        record: LibraryRecord,
+        *,
+        force: bool = False,
+        load: bool = False,
+    ) -> None:
+        # Cooperative override: keep the same keyword surface as GameDetailsMixin.
+        # Selecting normal rows uses load=False; Show/Refresh may use load=True.
+        # Preserved/offline rows stay read-only regardless of the requested mode.
         if not self._record_requires_live_filesystem(record):
-            super()._activate_details_record(record, force=force)
+            super()._activate_details_record(record, force=force, load=load)
             return
 
         try:
