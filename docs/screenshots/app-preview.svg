@@ -79,6 +79,7 @@
     <text x="260" y="318" fill="#9f97ad" font-size="9">Filename preset</text>
     <rect x="344" y="302" width="230" height="28" fill="#251e34" stroke="#342a48"/>
     <text x="356" y="321" fill="#d7d1e1" font-size="10">PPSA → Title → Version</text>
+    <text x="556" y="321" fill="#9f97ad" font-size="10">▾</text>
     <text x="260" y="350" fill="#f2eff8" font-size="12" font-weight="700">Library organization</text>
     <text x="388" y="350" fill="#9f97ad" font-size="9">Choose how the library should look after Apply changes.</text>
 
@@ -115,6 +116,7 @@
     <text x="584" y="580" fill="#9f97ad" font-size="10">Filter</text>
     <rect x="626" y="560" width="108" height="28" fill="#251e34" stroke="#a875d6"/>
     <text x="642" y="579" fill="#d7d1e1" font-size="10">ALL</text>
+    <text x="716" y="579" fill="#c08ce8" font-size="10">▾</text>
     <text x="752" y="580" fill="#746c82" font-size="9">144 results</text>
     <rect x="1028" y="558" width="92" height="32" rx="4" fill="#251e34" stroke="#342a48"/>
     <text x="1047" y="579" fill="#d7d1e1" font-size="10" font-weight="700">↶ Undo</text>
