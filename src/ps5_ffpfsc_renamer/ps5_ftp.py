@@ -17,6 +17,10 @@ DEFAULT_FTP_PORT = 1337
 DEFAULT_FTP_USER = "anonymous"
 MAX_DISCOVERY_HOSTS = 1022
 MAX_REMOTE_SCAN_DIRECTORIES = 4096
+RFC1918_NETWORKS = tuple(
+    ipaddress.ip_network(value)
+    for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
 SHADOWMOUNT_PFSC_MOUNT_BASE = "/mnt/shadowmnt/pfsc"
 SHADOWMOUNT_REFERENCE_FILES = (
     "/data/shadowmount/config.ini",
@@ -143,13 +147,15 @@ def _private_ipv4(value: str) -> str | None:
         address = ipaddress.ip_address(value)
     except ValueError:
         return None
-    if address.version != 4 or not address.is_private or address.is_loopback or address.is_link_local:
+    if address.version != 4 or address.is_loopback or address.is_link_local:
+        return None
+    if not any(address in network for network in RFC1918_NETWORKS):
         return None
     return str(address)
 
 
 def local_private_ipv4_addresses() -> tuple[str, ...]:
-    """Return local private IPv4 addresses without sending network payloads."""
+    """Return local RFC1918 IPv4 addresses without sending network payloads."""
     found: set[str] = set()
 
     try:
@@ -196,7 +202,7 @@ def discovery_hosts(
     *,
     max_hosts: int = MAX_DISCOVERY_HOSTS,
 ) -> tuple[str, ...]:
-    """Build a bounded set of /24 LAN/Wi-Fi targets from local private IPs."""
+    """Build a bounded set of /24 LAN/Wi-Fi targets from local RFC1918 IPs."""
     addresses = tuple(local_addresses or local_private_ipv4_addresses())
     local_set = {value for value in addresses if _private_ipv4(value)}
     targets: list[str] = []
@@ -245,7 +251,7 @@ def discover_ps5_ftp(
     local_addresses: Iterable[str] | None = None,
     stop_event: threading.Event | None = None,
 ) -> list[DiscoveryCandidate]:
-    """Scan only bounded private /24 LAN/Wi-Fi ranges for the selected FTP port."""
+    """Scan only bounded RFC1918 /24 LAN/Wi-Fi ranges for the selected FTP port."""
     if not 1 <= int(port) <= 65535:
         raise ValueError("FTP port must be between 1 and 65535.")
 
@@ -297,9 +303,16 @@ class PS5FtpClient:
         if not 1 <= port <= 65535:
             raise ValueError("FTP port must be between 1 and 65535.")
 
-        welcome = self.ftp.connect(host=host, port=port, timeout=timeout)
-        self.ftp.login(user=username or DEFAULT_FTP_USER, passwd=password)
-        self.ftp.set_pasv(True)
+        try:
+            welcome = self.ftp.connect(host=host, port=port, timeout=timeout)
+            self.ftp.login(user=username or DEFAULT_FTP_USER, passwd=password)
+            self.ftp.set_pasv(True)
+        except (OSError, EOFError, ftplib.Error):
+            try:
+                self.ftp.close()
+            finally:
+                self.connected = False
+            raise
         self.host = host
         self.port = port
         self.connected = True
