@@ -47,11 +47,13 @@ from .ui.sortable_results_mixin import SortableResultsMixin
 from .ui.startup_preferences_mixin import StartupPreferencesMixin
 from .ui.status_summary_mixin import StatusSummaryMixin
 from .ui.undo_cache_mixin import UndoCacheMixin
+from .ui.workspace_layout_mixin import WorkspaceLayoutMixin
 from .ui.workspace_preferences_mixin import WorkspacePreferencesMixin
 
 
 class RenamerApp(
     RenameSafetyMixin,
+    WorkspaceLayoutMixin,
     SelfTestMixin,
     UndoCacheMixin,
     PreservedViewGuardMixin,
