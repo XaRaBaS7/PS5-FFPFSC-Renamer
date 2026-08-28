@@ -4,19 +4,24 @@ v0.5.0 is a major desktop workflow and reliability update. It keeps the existing
 
 ## v0.5.0 hotfix refresh
 
-The downloadable Windows package for this same v0.5.0 release is refreshed from the current `main` source after the UX and MkPFS memory-safety validation. The historical `v0.5.0` tag remains anchored to the original release commit; no v0.5.1 is introduced.
+The downloadable Windows package for this same v0.5.0 release is refreshed from the current `main` source after the UX, MkPFS memory-safety and flat-root organization validation. The historical `v0.5.0` tag remains anchored to the original release commit; no v0.5.1 is introduced.
 
 - Fixed automatic startup scans so the modern shell no longer configures a stale, already-destroyed central `Options` Tk widget.
 - Added a one-second live scan clock with progress percentage, elapsed time and ETA estimation so long MkPFS operations remain visibly active.
 - The final action now reads `Apply changes` / `Apply changes (N)` and uses a distinct green enabled state while continuing to route through the existing safe rename entry point.
 - Reworked the bottom project credit into a spaced, inset `PROJECT BY XaRaBaS ↗` element.
 - Replaced ambiguous Folder handling with three result-oriented library modes: **One folder per game**, **All files in library root** and **Keep current structure**, with a real Before/After example.
+- **All files in library root** now performs the requested final layout: each READY `.ffpfsc` is renamed/moved into its selected library root first, then old source directories are removed only when they are actually empty. Cleanup uses non-recursive empty-directory removal, never deletes the selected root, and retains any folder containing another file, hidden file or subdirectory.
+- Flat-root empty-folder cleanup is journaled with the rename transaction so late-failure rollback and `Ctrl+Z` Undo can recreate removed source directories before restoring files to their original paths.
+- The dark **Review changes** dialog reports flat-root file moves and empty-folder cleanup candidates before Apply.
 - Replaced the native Windows rename prompt with a dark in-app **Review changes** dialog that explains the organization mode, READY items, path changes and folder operations before Apply.
 - Replaced the old Options tab strip with a modern vertical settings navigation.
 - Reworked the main workspace into compact **Library setup** / **Rename builder** tabs so only one configuration panel occupies vertical space at a time and the results list remains the dominant area.
 - The main workspace opens on **Library setup** by default and requests a taller results Treeview for normal library browsing.
 - Restored a real attached Tk/Windows **File / Edit / Tools / Help** menubar instead of detaching it behind an in-app Menubutton row, keeping the existing menu callbacks and shortcuts live.
 - Moved the creator credit into a separated footer/status area with its own spacing and divider; the old results-area overlay is suppressed.
+- Refreshed the canonical README Preview so it represents the current tabbed layout, native menu, larger library list, separated footer and current library-organization controls.
+- Strengthened README Preview CI enforcement: material changes under the modern `ui/` mixins, desktop shell, theme/icons or branding now fail CI unless `docs/screenshots/app-preview.svg` is refreshed in the same change set.
 - Lowered MkPFS child-process priority on Windows and moved helper stdout/stderr to temporary files with bounded diagnostic-tail reads.
 - Added a bounded-memory metadata path in the bundled helper: PFSC block offsets use small 64 KiB pages and exFAT lookup walks only root → `sce_sys` → `param.json` instead of materializing the complete offset table and recursive exFAT tree.
 - Packaged metadata reads no longer fall back automatically to full recursive MkPFS unpack when a layout is unsupported; the item is reported unavailable rather than risking unbounded RAM use.
@@ -45,9 +50,10 @@ The downloadable Windows package for this same v0.5.0 release is refreshed from 
 - FFPFSC payload contents are never rewritten or recompressed by rename/library-management operations.
 - `PARTIAL` metadata remains display-only and cannot be auto-renamed.
 - Destination collisions continue to block affected rename steps.
-- Selected library roots remain protected from folder rename.
+- Selected library roots remain protected from folder rename and removal.
 - Batch rename retains fresh pre-flight validation, transactional rollback, post-rename identity verification and persistent conservative Undo.
-- **All files in library root** never deletes non-empty source folders; source directories are left untouched unless another explicit safe operation handles them.
+- **All files in library root** moves/renames each READY file first and only then attempts non-recursive removal of the old source directory. Only directories left completely empty are removed; any directory containing another file, hidden file or subdirectory remains untouched. Empty parent directories may be removed upward only until the selected library root boundary, which is never removed.
+- Flat-root cleanup candidates are included in the rename manifest and pre-flight summary; cleanup directory steps are recorded so rollback/Undo can rebuild the original directory path before restoring a file.
 - `OFFLINE` rows are informational/read-only and filesystem-backed actions are blocked until the root is available and scanned successfully again.
 - Failed or cancelled scans restore the previous successful library view as stale/read-only context instead of clearing it.
 - Automatic cache pruning runs only in the background when every configured root is confirmed online and remains scoped to current configured roots.
@@ -67,6 +73,8 @@ Every report is written atomically to the local feedback queue first. Production
 - Bundled metadata and Game Details reads avoid the generic MkPFS 0.0.9 full-tree `--deep --only` path in packaged builds.
 - Regression coverage simulates a PFSC table with ten million blocks and verifies that initialization reads only bounded 64 KiB offset pages rather than materializing a table proportional to image size.
 - Tests verify that unsupported packaged metadata layouts do not enter the heavy fallback, Game Details stay idle until requested, and registered helper processes are terminated on cleanup.
+- Flat-root safety tests verify move-before-cleanup ordering, nested empty-folder cleanup, preservation of non-empty folders, shared-folder behavior, selected-root protection, rollback and persistent Undo.
+- The Rename Safety Self-Test now includes a real disposable flat-root move, empty-directory cleanup, content hash verification and Undo cycle.
 - Deterministic synthetic scanner regression coverage with 1,024 `.ffpfsc` files.
 - Expanded tests for offline-root preservation, stale-view guards, feedback redaction/transport, branding assets, release gates, scan snapshots and desktop MRO.
 
