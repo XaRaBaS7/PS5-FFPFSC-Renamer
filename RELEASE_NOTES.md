@@ -1,31 +1,45 @@
-# PS5 FFPFSC Renamer v0.5.0a — PS5 FTP Preview
+# PS5 FFPFSC Renamer v0.5.0b — PS5 FTP Compatibility Preview
 
-v0.5.0a starts the PS5 FTP workspace requested by the community while keeping the existing local-library workflow and rename-safety model intact. This is an **alpha / prerelease** intended for testing and feedback; v0.5.0 remains the current stable release.
+v0.5.0b hardens the PS5 FTP workspace introduced in v0.5.0a after checking the current etaHEN FTP and ShadowMountPlus implementations at source level. This remains an **alpha / prerelease** intended for testing and feedback; v0.5.0 remains the current stable release.
+
+## FTP compatibility verified against current implementations
+
+- etaHEN's integrated FTP implementation uses port **1337** by default and supports the operations required by the workspace: passive FTP, `MLSD`, `NLST`, `SIZE`, `REST`, `RETR`, `RNFR` and `RNTO`.
+- The preferred Explorer path therefore continues to use `MLSD` on the integrated etaHEN server.
+- Added a Unix `LIST` parser fallback for standalone PS5 `ftpsrv` variants that do not expose `MLSD`/`NLST`, allowing the remote Explorer to remain usable with both server families.
+- Recursive remote discovery is now bounded by both result count and directory count so an unexpectedly broad PS5 root cannot turn into an unbounded traversal.
+- Small ShadowMount configuration/status files are size-checked before retrieval when FTP `SIZE` is available.
+
+## ShadowMountPlus rename safety
+
+- Current ShadowMountPlus source recognizes `.ffpfsc` as an image type by extension, so changing only the descriptive base filename does not remove `.ffpfsc` recognition.
+- Remote rename now checks all known filename/path-sensitive ShadowMount files: `/data/shadowmount/config.ini`, `/data/shadowmount/autotune.ini`, `/data/shadowmount/manual.lst` and `/data/shadowmount/manual.status`.
+- The utility reproduces ShadowMountPlus' current PFSC mount-point rule (`filename stem + FNV-1a(full source path)` under `/mnt/shadowmnt/pfsc`).
+- If the exact mount point for the selected `.ffpfsc` currently exists, the rename is refused. The image must be unmounted/stopped before retrying.
+- Existing destination-collision preflight, extension preservation and post-rename source/destination verification remain active.
+- `.ffpfsc` payload contents are never rewritten or recompressed by FTP rename operations.
 
 ## PS5 FTP workspace
 
-- Added separate **Local Library** and **PS5 FTP** workspaces in the sidebar so remote operations are never confused with local filesystem operations.
-- Added manual PS5 host/IP, configurable FTP port, username and password fields. Port **1337** is preselected for the common etaHEN FTP setup.
-- FTP credentials are kept in application memory for the current session and are not written into project settings or feedback reports.
-- Added bounded **Discover PS5** scanning for the selected FTP port across private local `/24` LAN/Wi-Fi networks only.
-- Added a themed **PS5 Explorer** with remote path navigation, Up/Refresh controls, folder browsing and recursive `.ffpfsc` enumeration.
-- Added manual remote `.ffpfsc` rename with confirmation, destination-collision preflight and post-rename verification.
-- Remote rename requires the `.ffpfsc` extension to remain intact and does not rewrite or recompress the game image.
-- Known exact-path references in `/data/shadowmount/config.ini` and `/data/shadowmount/manual.lst` are checked before remote rename. When a reference is found, the operation is blocked instead of leaving an obviously stale ShadowMount path.
+- Separate **Local Library** and **PS5 FTP** workspaces keep remote operations visually distinct from local filesystem operations.
+- Manual PS5 host/IP, configurable FTP port, username and password are supported; credentials remain session-only.
+- **Discover PS5** performs bounded scanning on private local LAN/Wi-Fi ranges for the selected FTP port.
+- The themed **PS5 Explorer** supports remote path navigation, Up/Refresh controls, folder browsing and recursive `.ffpfsc` enumeration.
+- Manual remote `.ffpfsc` rename includes confirmation, collision preflight and post-rename verification.
 
-## Desktop fixes carried into v0.5.0a
+## Desktop fixes carried forward
 
 - Fixed the Windows result-row selection path that could surface the automatic **Feedback & Bug Report** dialog when clicking or right-clicking a library row.
 - Increased the default result-list height.
 - Configuration panels auto-collapse after inactivity to return vertical space to the library list.
 - **Scan now F5** remains available beside the progress controls even while configuration is collapsed.
-- Existing `Undo` / `Ctrl+Z`, collision protection, PARTIAL blocking, pre-flight validation and local transaction rollback remain unchanged.
+- Existing local `Undo` / `Ctrl+Z`, collision protection, PARTIAL blocking, pre-flight validation and transaction rollback remain unchanged.
 
-## Current alpha scope
+## Current preview scope
 
-The first FTP increment intentionally focuses on safe connection, discovery, browsing, `.ffpfsc` enumeration and verified remote rename. Automatic Title ID / title / version extraction directly from a remote multi-gigabyte `.ffpfsc` is not faked by downloading the complete image in the background; selective remote metadata access is the next stage of the FTP work.
+Connection, discovery, browsing, `.ffpfsc` enumeration and conservative remote rename are implemented. Automatic Title ID / title / version extraction directly from a remote multi-gigabyte `.ffpfsc` is still intentionally not performed by downloading the complete image. The next engineering stage is bounded random-access metadata reading over FTP using etaHEN's `REST`/`RETR` support, isolated from the Explorer control connection.
 
-Please test this prerelease on non-critical or independently backed-up files first. Reports about FTP-server compatibility, PS5 folder layouts, ShadowMount configurations and UI workflow are especially useful.
+The FTP path has been validated against source implementations and automated tests, but a real-console test is still required because network conditions, payload versions and console storage layouts can vary. Test first with a non-critical or independently backed-up image.
 
 Project: https://github.com/XaRaBaS7/PS5-FFPFSC-Renamer
 
