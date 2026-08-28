@@ -12,9 +12,9 @@ def _project_version() -> str:
     return project["project"]["version"]
 
 
-def test_v050a_metadata_is_synchronized_without_relabeling_v050_stable() -> None:
+def test_v050b_metadata_is_synchronized_without_relabeling_v050_stable() -> None:
     version = _project_version()
-    assert version == "0.5.0a"
+    assert version == "0.5.0b"
     assert ps5_ffpfsc_renamer.__version__ == version
 
     readme = Path("README.md").read_text(encoding="utf-8")
